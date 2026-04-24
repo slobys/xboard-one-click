@@ -137,6 +137,14 @@ print_usage() {
 EOF
 }
 
+print_startup_notice() {
+  if [ "$AUTO_INSTALL_DEPS" = "1" ]; then
+    log "AUTO_INSTALL_DEPS=1：若检测到 Debian/Ubuntu 缺少 Docker / Compose / git / python3，将自动尝试安装"
+  else
+    log "AUTO_INSTALL_DEPS=0：已关闭自动安装依赖，请确保系统已手动安装 Docker / Compose / git / python3"
+  fi
+}
+
 parse_args() {
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -615,6 +623,7 @@ main() {
   load_deploy_env
   parse_args "$@"
   apply_defaults
+  print_startup_notice
   configure_interactively
   validate_config
   write_deploy_env

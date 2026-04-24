@@ -63,6 +63,8 @@ chmod +x install.sh update.sh uninstall.sh
 ./install.sh --interactive
 ```
 
+脚本启动后会先提示：如果当前是 Debian/Ubuntu，且缺少 Docker 等依赖，会自动尝试安装。
+
 脚本会询问：
 
 - NPM HTTP 端口
