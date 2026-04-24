@@ -7,6 +7,7 @@ Xboard 一键部署脚本项目，默认走稳妥方案：
 - **Xboard 默认使用 SQLite + 内置 Redis**
 - **安装脚本自动尝试放行对应防火墙端口**
 - **Debian/Ubuntu 上缺失 Docker 时可自动安装依赖**
+- **自动识别服务器公网 IP，并用于访问入口与反代模板展示**
 - **端口支持自定义，并可持久化到本地 `deploy.env`**
 - **安装完成后自动打印 NPM 反代填写模板，并写入 `npm-proxy-template.txt`**
 - **反向代理主机在 NPM 后台手动添加**
@@ -64,6 +65,7 @@ chmod +x install.sh update.sh uninstall.sh
 ```
 
 脚本启动后会先提示：如果当前是 Debian/Ubuntu，且缺少 Docker 等依赖，会自动尝试安装。
+同时会优先自动识别服务器公网 IP；如果识别不到，则回退到本机 IP。
 
 脚本会询问：
 
@@ -103,6 +105,12 @@ NPM_ADMIN_PORT=20881 XBOARD_PORT=27001 XBOARD_ADMIN_EMAIL=you@example.com ./inst
 
 ```text
 shell 环境变量 > deploy.env > 脚本默认值
+```
+
+如果你想手动指定展示 IP，也可以这样：
+
+```bash
+SERVER_IP=1.2.3.4 ./install.sh --interactive
 ```
 
 ## install.sh 会做什么
@@ -156,6 +164,7 @@ shell 环境变量 > deploy.env > 脚本默认值
 - `INTERACTIVE_CONFIG`
 - `AUTO_WRITE_DEPLOY_ENV`
 - `AUTO_INSTALL_DEPS`
+- `SERVER_IP`
 
 ### 变量说明
 
@@ -164,6 +173,7 @@ shell 环境变量 > deploy.env > 脚本默认值
 - `INTERACTIVE_CONFIG=1`：效果等同于 `./install.sh --interactive`
 - `AUTO_WRITE_DEPLOY_ENV=0`：不自动写入 `deploy.env`
 - `AUTO_INSTALL_DEPS=0`：禁用自动安装依赖（默认开启）
+- `SERVER_IP=1.2.3.4`：手动指定显示在访问入口和 NPM 模板中的服务器 IP
 
 ## 更新项目
 
@@ -195,10 +205,10 @@ PURGE_DATA=1 ./uninstall.sh
 
 ### 1) 登录 NPM
 
-后台地址：
+后台地址会自动按识别到的 IP 显示，例如：
 
 ```text
-http://你的服务器IP:你设置的NPM_ADMIN_PORT
+http://自动识别出的服务器IP:你设置的NPM_ADMIN_PORT
 ```
 
 NPM 默认初始账号通常是：
@@ -222,7 +232,7 @@ cat npm-proxy-template.txt
 
 - **Domain Names**: 你的面板域名，例如 `xboard.example.com`
 - **Scheme**: `http`
-- **Forward Hostname / IP**: 服务器 IP
+- **Forward Hostname / IP**: 自动识别出的服务器 IP
 - **Forward Port**: 你设置的 `XBOARD_PORT`
 - **Block Common Exploits**: 建议开启
 - **Websockets Support**: 建议开启

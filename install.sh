@@ -22,6 +22,9 @@ DEFAULT_INTERACTIVE_CONFIG=0
 DEFAULT_AUTO_WRITE_DEPLOY_ENV=1
 DEFAULT_AUTO_INSTALL_DEPS=1
 
+INPUT_SERVER_IP="${SERVER_IP:-}"
+DETECTED_SERVER_IP=""
+
 INPUT_NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
 INPUT_NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
 INPUT_NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-}"
@@ -35,6 +38,7 @@ INPUT_INTERACTIVE_CONFIG="${INTERACTIVE_CONFIG:-}"
 INPUT_AUTO_WRITE_DEPLOY_ENV="${AUTO_WRITE_DEPLOY_ENV:-}"
 INPUT_AUTO_INSTALL_DEPS="${AUTO_INSTALL_DEPS:-}"
 
+SERVER_IP="${SERVER_IP:-}"
 NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
 NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
 NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-}"
@@ -78,6 +82,85 @@ run_privileged() {
   "${SUDO_CMD[@]}" "$@"
 }
 
+is_ipv4() {
+  [[ "$1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]
+}
+
+first_nonempty_line() {
+  awk 'NF {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0); print; exit}'
+}
+
+fetch_public_ip() {
+  local value
+  if command -v curl >/dev/null 2>&1; then
+    for url in \
+      "https://api.ipify.org" \
+      "https://ipv4.icanhazip.com" \
+      "https://ifconfig.me/ip"
+    do
+      value="$(curl -4fsSL --max-time 5 "$url" 2>/dev/null | first_nonempty_line || true)"
+      if is_ipv4 "$value"; then
+        printf '%s' "$value"
+        return 0
+      fi
+    done
+  fi
+
+  if command -v wget >/dev/null 2>&1; then
+    for url in \
+      "https://api.ipify.org" \
+      "https://ipv4.icanhazip.com" \
+      "https://ifconfig.me/ip"
+    do
+      value="$(wget -4qO- --timeout=5 "$url" 2>/dev/null | first_nonempty_line || true)"
+      if is_ipv4 "$value"; then
+        printf '%s' "$value"
+        return 0
+      fi
+    done
+  fi
+
+  return 1
+}
+
+fetch_local_ip() {
+  local value
+  if command -v ip >/dev/null 2>&1; then
+    value="$(ip route get 1.1.1.1 2>/dev/null | awk '/src/ {for (i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}' || true)"
+    if is_ipv4 "$value"; then
+      printf '%s' "$value"
+      return 0
+    fi
+  fi
+
+  value="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  if is_ipv4 "$value"; then
+    printf '%s' "$value"
+    return 0
+  fi
+
+  return 1
+}
+
+resolve_server_ip() {
+  if is_ipv4 "$SERVER_IP"; then
+    DETECTED_SERVER_IP="$SERVER_IP"
+    return 0
+  fi
+
+  DETECTED_SERVER_IP="$(fetch_public_ip || true)"
+  if is_ipv4 "$DETECTED_SERVER_IP"; then
+    return 0
+  fi
+
+  DETECTED_SERVER_IP="$(fetch_local_ip || true)"
+  if is_ipv4 "$DETECTED_SERVER_IP"; then
+    return 0
+  fi
+
+  DETECTED_SERVER_IP="服务器IP"
+}
+
 restore_input_overrides() {
   [ -z "$INPUT_NPM_HTTP_PORT" ] || NPM_HTTP_PORT="$INPUT_NPM_HTTP_PORT"
   [ -z "$INPUT_NPM_HTTPS_PORT" ] || NPM_HTTPS_PORT="$INPUT_NPM_HTTPS_PORT"
@@ -91,6 +174,7 @@ restore_input_overrides() {
   [ -z "$INPUT_INTERACTIVE_CONFIG" ] || INTERACTIVE_CONFIG="$INPUT_INTERACTIVE_CONFIG"
   [ -z "$INPUT_AUTO_WRITE_DEPLOY_ENV" ] || AUTO_WRITE_DEPLOY_ENV="$INPUT_AUTO_WRITE_DEPLOY_ENV"
   [ -z "$INPUT_AUTO_INSTALL_DEPS" ] || AUTO_INSTALL_DEPS="$INPUT_AUTO_INSTALL_DEPS"
+  [ -z "$INPUT_SERVER_IP" ] || SERVER_IP="$INPUT_SERVER_IP"
 }
 
 load_deploy_env() {
@@ -143,6 +227,8 @@ print_startup_notice() {
   else
     log "AUTO_INSTALL_DEPS=0：已关闭自动安装依赖，请确保系统已手动安装 Docker / Compose / git / python3"
   fi
+
+  log "访问地址将优先自动识别公网 IP；识别不到则回退到本机 IP，也可用 SERVER_IP=1.2.3.4 手动指定"
 }
 
 parse_args() {
@@ -547,7 +633,7 @@ Nginx Proxy Manager 反代模板
 建议填写：
 - Domain Names: xboard.example.com
 - Scheme: http
-- Forward Hostname / IP: 服务器IP
+- Forward Hostname / IP: ${DETECTED_SERVER_IP}
 - Forward Port: ${XBOARD_PORT}
 - Cache Assets: 按需，默认可不开
 - Block Common Exploits: 开启
@@ -561,8 +647,8 @@ SSL 建议：
 - HSTS Enabled: 按需
 
 访问参考：
-- NPM 后台: http://服务器IP:${NPM_ADMIN_PORT}
-- Xboard 直连: http://服务器IP:${XBOARD_PORT}
+- NPM 后台: http://${DETECTED_SERVER_IP}:${NPM_ADMIN_PORT}
+- Xboard 直连: http://${DETECTED_SERVER_IP}:${XBOARD_PORT}
 EOF
 }
 
@@ -585,8 +671,8 @@ print_summary() {
 - NPM 反代模板: ${NPM_PROXY_TEMPLATE_FILE}
 
 访问入口：
-- NPM 管理后台: http://服务器IP:${NPM_ADMIN_PORT}
-- Xboard 直连地址: http://服务器IP:${XBOARD_PORT}
+- NPM 管理后台: http://${DETECTED_SERVER_IP}:${NPM_ADMIN_PORT}
+- Xboard 直连地址: http://${DETECTED_SERVER_IP}:${XBOARD_PORT}
 
 已尝试放行端口：
 - ${NPM_HTTP_PORT}/tcp
@@ -600,13 +686,13 @@ NPM 默认初始账号：
 
 建议下一步：
 1. 登录 NPM 后立即修改默认账号密码
-2. 在 NPM 中新增 Proxy Host，把你的域名反代到 `http://服务器IP:${XBOARD_PORT}`
+2. 在 NPM 中新增 Proxy Host，把你的域名反代到 `http://${DETECTED_SERVER_IP}:${XBOARD_PORT}`
 3. 如果公网和 DNS 已就绪，再在 NPM 中申请 Let's Encrypt 证书
 
 NPM 反代填写模板：
 - Domain Names: xboard.example.com
 - Scheme: http
-- Forward Hostname / IP: 服务器IP
+- Forward Hostname / IP: ${DETECTED_SERVER_IP}
 - Forward Port: ${XBOARD_PORT}
 - Block Common Exploits: 开启
 - Websockets Support: 开启
@@ -627,6 +713,7 @@ main() {
   configure_interactively
   validate_config
   write_deploy_env
+  resolve_server_ip
   init_privilege_helper
   install_missing_dependencies
   check_env
