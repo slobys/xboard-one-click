@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_NAME="xboard-one-click-update"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORK_DIR="${SCRIPT_DIR}/runtime"
+NPM_DIR="${WORK_DIR}/nginx-proxy-manager"
+XBOARD_DIR="${WORK_DIR}/Xboard"
+XBOARD_BRANCH="${XBOARD_BRANCH:-compose}"
+XBOARD_PORT="${XBOARD_PORT:-7001}"
+
+COMPOSE_CMD=()
+
+log() {
+  printf '[%s] %s\n' "$PROJECT_NAME" "$*"
+}
+
+die() {
+  printf '[%s][WARN] %s\n' "$PROJECT_NAME" "$*" >&2
+  exit 1
+}
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "缺少命令: $1"
+}
+
+run_compose() {
+  local dir="$1"
+  shift
+  (cd "$dir" && "${COMPOSE_CMD[@]}" "$@")
+}
+
+check_env() {
+  need_cmd git
+  need_cmd docker
+  need_cmd python3
+
+  if docker compose version >/dev/null 2>&1; then
+    COMPOSE_CMD=(docker compose)
+  elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_CMD=(docker-compose)
+  else
+    die "未找到 docker compose / docker-compose"
+  fi
+
+  docker info >/dev/null 2>&1 || die "当前用户无法访问 Docker daemon。"
+}
+
+ensure_xboard_port_mapping() {
+  python3 - "$XBOARD_DIR/compose.yaml" <<'PY'
+from pathlib import Path
+import os
+import re
+import sys
+path = Path(sys.argv[1])
+text = path.read_text()
+port = os.environ.get('XBOARD_PORT', '7001')
+text_new = re.sub(r'-\s*"\d+:7001"', f'- "{port}:7001"', text, count=1)
+if text_new == text and '7001:7001' not in text:
+    raise SystemExit('未在 compose.yaml 中找到 Xboard 端口映射，已停止以避免误改。')
+path.write_text(text_new)
+PY
+}
+
+main() {
+  check_env
+
+  [ -f "$NPM_DIR/compose.yaml" ] || die "未找到 NPM 部署目录，请先执行 ./install.sh"
+  [ -d "$XBOARD_DIR/.git" ] || die "未找到 Xboard 运行目录，请先执行 ./install.sh"
+
+  log "更新 Nginx Proxy Manager 镜像"
+  run_compose "$NPM_DIR" pull
+  run_compose "$NPM_DIR" up -d
+
+  log "更新 Xboard 仓库代码"
+  git -C "$XBOARD_DIR" fetch origin "$XBOARD_BRANCH" --depth 1
+  git -C "$XBOARD_DIR" checkout "$XBOARD_BRANCH"
+  git -C "$XBOARD_DIR" reset --hard "origin/$XBOARD_BRANCH"
+  ensure_xboard_port_mapping
+
+  log "更新 Xboard 镜像并重建容器"
+  run_compose "$XBOARD_DIR" pull
+  run_compose "$XBOARD_DIR" up -d
+
+  log "更新完成"
+}
+
+main "$@"
