@@ -79,11 +79,19 @@ import sys
 path = Path(sys.argv[1])
 port = sys.argv[2]
 text = path.read_text()
-text_new = re.sub(r'-\s*"\d+:7001"', f'- "{port}:7001"', text, count=1)
-if text_new == text and '7001:7001' not in text:
-    raise SystemExit('未在 compose.yaml 中找到 Xboard 端口映射，已停止以避免误改。')
+text_new = text.replace('"7001:7001"', f'"{port}:7001"', 1)
+if text_new == text:
+    text_new = re.sub(r'-\s*"\d+:7001"', f'- "{port}:7001"', text, count=1)
+if text_new == text:
+    raise SystemExit('未在 compose.yaml 中找到可替换的 Xboard 端口映射，已停止以避免误改。')
 path.write_text(text_new)
 PY
+
+  if ! grep -Fq "\"${XBOARD_PORT}:7001\"" "$XBOARD_DIR/compose.yaml"; then
+    die "compose.yaml 端口映射校验失败，未发现 ${XBOARD_PORT}:7001"
+  fi
+
+  log "compose.yaml 端口映射已更新为 ${XBOARD_PORT}:7001"
 }
 
 main() {
@@ -107,6 +115,7 @@ main() {
   log "更新 Xboard 镜像并重建容器"
   run_compose "$XBOARD_DIR" pull
   run_compose "$XBOARD_DIR" up -d
+  run_compose "$XBOARD_DIR" port xboard 7001
 
   log "更新完成（当前 Xboard 对外端口: $XBOARD_PORT）"
 }
