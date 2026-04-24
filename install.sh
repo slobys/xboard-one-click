@@ -560,14 +560,37 @@ should_install_xboard() {
   return 1
 }
 
+wait_for_xboard_redis() {
+  local attempt=1
+  local max_attempts=30
+
+  while [ "$attempt" -le "$max_attempts" ]; do
+    if run_compose "$XBOARD_DIR" exec -T xboard sh -lc 'test -S /data/redis.sock'; then
+      log "检测到 Xboard 内置 Redis 已就绪"
+      return 0
+    fi
+
+    sleep 2
+    attempt=$((attempt + 1))
+  done
+
+  warn "等待 Xboard 内置 Redis 就绪超时，输出最近日志供排查"
+  run_compose "$XBOARD_DIR" logs --tail=80 xboard || true
+  die "Xboard 内置 Redis 未能及时启动，已停止安装。"
+}
+
 install_xboard() {
   clone_or_update_xboard
   ensure_xboard_port_mapping
   prepare_xboard_env
 
+  log "先启动 Xboard 容器，确保内置 Redis 正常就绪"
+  run_compose "$XBOARD_DIR" up -d
+  wait_for_xboard_redis
+
   if should_install_xboard; then
-    log "执行 Xboard 初始化（SQLite + 内置 Redis）"
-    run_compose "$XBOARD_DIR" run --rm \
+    log "在已启动的 Xboard 容器内执行初始化（SQLite + 内置 Redis）"
+    run_compose "$XBOARD_DIR" exec -T \
       -e ENABLE_SQLITE=true \
       -e ENABLE_REDIS=true \
       -e ADMIN_ACCOUNT="$XBOARD_ADMIN_EMAIL" \
@@ -576,7 +599,7 @@ install_xboard() {
     log "检测到现有 SQLite 数据，跳过 Xboard 初始化。如需强制重装可传入 FORCE_XBOARD_INSTALL=1"
   fi
 
-  log "启动 Xboard"
+  log "确认 Xboard 维持启动状态"
   run_compose "$XBOARD_DIR" up -d
 }
 

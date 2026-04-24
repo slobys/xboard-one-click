@@ -123,14 +123,15 @@ SERVER_IP=1.2.3.4 ./install.sh --interactive
 6. 启动 NPM
 7. 拉取 Xboard 官方 `compose` 分支
 8. 准备 `.env`、SQLite 数据目录、日志目录等
-9. 执行官方安装命令（SQLite + 内置 Redis）
-10. 启动 Xboard
-11. 自动尝试放行以下端口：
+9. 先启动 Xboard 容器并等待内置 Redis 就绪
+10. 在已启动容器内执行安装命令（SQLite + 内置 Redis）
+11. 保持 Xboard 启动状态
+12. 自动尝试放行以下端口：
     - `NPM_HTTP_PORT/tcp`
     - `NPM_HTTPS_PORT/tcp`
     - `NPM_ADMIN_PORT/tcp`
     - `XBOARD_PORT/tcp`
-12. 自动按当前配置生成 NPM 反代模板：
+13. 自动按当前配置生成 NPM 反代模板：
     - 终端直接打印
     - 同时写入 `npm-proxy-template.txt`
 
