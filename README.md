@@ -95,33 +95,6 @@ https://你的域名/安全路径
 PURGE_DATA=1 ./uninstall.sh
 ```
 
-## 常见问题
-
-### 打不开 Xboard 后台
-请确认访问的是脚本输出的 **Xboard 管理面板** 地址，而不是：
-
-```text
-http://IP:XBOARD_PORT/
-```
-
-### 自定义端口后无法访问
-执行：
-
-```bash
-cd ~/xboard-one-click/runtime/Xboard
-docker compose port xboard 7001
-docker compose ps
-```
-
-### 域名访问返回 404
-通常表示反代已通，但访问的不是后台安全路径。
-
-正确方式：
-
-```text
-https://你的域名/安全路径
-```
-
 ## 适用环境
 
 - Debian / Ubuntu
