@@ -1,6 +1,18 @@
 # xboard-one-click
 
-一键部署 **Xboard + Nginx Proxy Manager**。
+![Platform](https://img.shields.io/badge/platform-Debian%20%2F%20Ubuntu-blue)
+![Docker](https://img.shields.io/badge/docker-required-2496ED)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+一键部署 **Xboard + Nginx Proxy Manager**，适合需要快速完成面板部署、端口自定义、域名反代与 HTTPS 配置的场景。
+
+## 适合谁
+
+适合希望尽量减少手动步骤的用户：
+- 快速部署 Xboard
+- 同时部署 Nginx Proxy Manager（NPM）
+- 使用自定义端口
+- 后续通过 NPM 配置域名和 HTTPS
 
 ## 特性
 
