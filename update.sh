@@ -6,9 +6,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${SCRIPT_DIR}/runtime"
 NPM_DIR="${WORK_DIR}/nginx-proxy-manager"
 XBOARD_DIR="${WORK_DIR}/Xboard"
-XBOARD_BRANCH="${XBOARD_BRANCH:-compose}"
-XBOARD_PORT="${XBOARD_PORT:-7001}"
+DEPLOY_ENV_FILE="${SCRIPT_DIR}/deploy.env"
 
+DEFAULT_XBOARD_BRANCH="compose"
+DEFAULT_XBOARD_PORT=7001
+
+INPUT_XBOARD_BRANCH="${XBOARD_BRANCH:-}"
+INPUT_XBOARD_PORT="${XBOARD_PORT:-}"
+
+XBOARD_BRANCH="${XBOARD_BRANCH:-}"
+XBOARD_PORT="${XBOARD_PORT:-}"
 COMPOSE_CMD=()
 
 log() {
@@ -28,6 +35,24 @@ run_compose() {
   local dir="$1"
   shift
   (cd "$dir" && "${COMPOSE_CMD[@]}" "$@")
+}
+
+load_deploy_env() {
+  if [ -f "$DEPLOY_ENV_FILE" ]; then
+    log "加载本地配置文件: $DEPLOY_ENV_FILE"
+    set -a
+    # shellcheck disable=SC1090
+    . "$DEPLOY_ENV_FILE"
+    set +a
+  fi
+
+  [ -z "$INPUT_XBOARD_BRANCH" ] || XBOARD_BRANCH="$INPUT_XBOARD_BRANCH"
+  [ -z "$INPUT_XBOARD_PORT" ] || XBOARD_PORT="$INPUT_XBOARD_PORT"
+}
+
+apply_defaults() {
+  XBOARD_BRANCH="${XBOARD_BRANCH:-${DEFAULT_XBOARD_BRANCH}}"
+  XBOARD_PORT="${XBOARD_PORT:-${DEFAULT_XBOARD_PORT}}"
 }
 
 check_env() {
@@ -63,6 +88,8 @@ PY
 }
 
 main() {
+  load_deploy_env
+  apply_defaults
   check_env
 
   [ -f "$NPM_DIR/compose.yaml" ] || die "未找到 NPM 部署目录，请先执行 ./install.sh"
@@ -82,7 +109,7 @@ main() {
   run_compose "$XBOARD_DIR" pull
   run_compose "$XBOARD_DIR" up -d
 
-  log "更新完成"
+  log "更新完成（当前 Xboard 对外端口: $XBOARD_PORT）"
 }
 
 main "$@"

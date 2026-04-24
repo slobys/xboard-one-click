@@ -2,3 +2,4 @@ runtime/
 *.log
 .DS_Store
 .env.local
+deploy.env

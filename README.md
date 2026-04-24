@@ -6,6 +6,7 @@ Xboard 一键部署脚本项目，默认走稳妥方案：
 - **Xboard 使用官方 compose 分支部署**
 - **Xboard 默认使用 SQLite + 内置 Redis**
 - **安装脚本自动尝试放行对应防火墙端口**
+- **端口支持自定义，并可持久化到本地 `deploy.env`**
 - **反向代理主机在 NPM 后台手动添加**
 
 这样做比直接执行第三方来源不明脚本更稳，也更容易维护。
@@ -25,6 +26,7 @@ Xboard 一键部署脚本项目，默认走稳妥方案：
 ```text
 xboard-one-click/
 ├── .gitignore
+├── deploy.env.example
 ├── install.sh
 ├── update.sh
 ├── uninstall.sh
@@ -47,27 +49,71 @@ xboard-one-click/
 
 如果你希望脚本自动放行防火墙端口，建议用 `root` 执行，或确保当前用户可用 `sudo`。
 
-## 一键执行
+## 推荐用法：先定好端口
+
+### 方式 1：交互式配置（推荐）
 
 ```bash
 chmod +x install.sh update.sh uninstall.sh
+./install.sh --interactive
+```
+
+脚本会询问：
+
+- NPM HTTP 端口
+- NPM HTTPS 端口
+- NPM 管理后台端口
+- Xboard 对外端口
+- Xboard 管理员邮箱
+
+然后自动保存到本地 `deploy.env`，后续更新时会继续沿用。
+
+### 方式 2：先编辑 `deploy.env`
+
+```bash
+cp deploy.env.example deploy.env
+nano deploy.env
 ./install.sh
+```
+
+示例：
+
+```env
+NPM_HTTP_PORT=80
+NPM_HTTPS_PORT=443
+NPM_ADMIN_PORT=20881
+XBOARD_PORT=27001
+XBOARD_ADMIN_EMAIL=admin@example.com
+```
+
+### 方式 3：临时环境变量
+
+```bash
+NPM_ADMIN_PORT=20881 XBOARD_PORT=27001 XBOARD_ADMIN_EMAIL=you@example.com ./install.sh
+```
+
+## 配置优先级
+
+```text
+shell 环境变量 > deploy.env > 脚本默认值
 ```
 
 ## install.sh 会做什么
 
-1. 创建独立运行目录 `runtime/`
-2. 写入 Nginx Proxy Manager 的 `compose.yaml`
-3. 启动 NPM
-4. 拉取 Xboard 官方 `compose` 分支
-5. 准备 `.env`、SQLite 数据目录、日志目录等
-6. 执行官方安装命令（SQLite + 内置 Redis）
-7. 启动 Xboard
-8. 自动尝试放行以下端口：
-   - `80/tcp`
-   - `443/tcp`
-   - `81/tcp`
-   - `7001/tcp`
+1. 加载 `deploy.env`（如果存在）
+2. 写入或更新本地配置文件
+3. 创建独立运行目录 `runtime/`
+4. 写入 Nginx Proxy Manager 的 `compose.yaml`
+5. 启动 NPM
+6. 拉取 Xboard 官方 `compose` 分支
+7. 准备 `.env`、SQLite 数据目录、日志目录等
+8. 执行官方安装命令（SQLite + 内置 Redis）
+9. 启动 Xboard
+10. 自动尝试放行以下端口：
+    - `NPM_HTTP_PORT/tcp`
+    - `NPM_HTTPS_PORT/tcp`
+    - `NPM_ADMIN_PORT/tcp`
+    - `XBOARD_PORT/tcp`
 
 支持的防火墙：
 
@@ -83,15 +129,9 @@ chmod +x install.sh update.sh uninstall.sh
 - NPM 管理后台：`81`
 - Xboard：`7001`
 
+> 建议：`80/443` 通常保留给 NPM，真正建议自定义的是 **NPM 管理后台端口** 和 **Xboard 对外端口**。
+
 ## 可选环境变量
-
-如果你想改默认端口或管理员邮箱，可以这样执行：
-
-```bash
-NPM_ADMIN_PORT=8081 XBOARD_PORT=7002 XBOARD_ADMIN_EMAIL=you@example.com ./install.sh
-```
-
-支持的变量：
 
 - `NPM_HTTP_PORT`
 - `NPM_HTTPS_PORT`
@@ -102,11 +142,15 @@ NPM_ADMIN_PORT=8081 XBOARD_PORT=7002 XBOARD_ADMIN_EMAIL=you@example.com ./instal
 - `XBOARD_BRANCH`
 - `ENABLE_FIREWALL_OPEN`
 - `FORCE_XBOARD_INSTALL`
+- `INTERACTIVE_CONFIG`
+- `AUTO_WRITE_DEPLOY_ENV`
 
 ### 变量说明
 
 - `ENABLE_FIREWALL_OPEN=0`：跳过防火墙放行
 - `FORCE_XBOARD_INSTALL=1`：即使检测到已有 SQLite 数据，也强制重新执行 Xboard 安装流程
+- `INTERACTIVE_CONFIG=1`：效果等同于 `./install.sh --interactive`
+- `AUTO_WRITE_DEPLOY_ENV=0`：不自动写入 `deploy.env`
 
 ## 更新项目
 
@@ -114,7 +158,7 @@ NPM_ADMIN_PORT=8081 XBOARD_PORT=7002 XBOARD_ADMIN_EMAIL=you@example.com ./instal
 ./update.sh
 ```
 
-会做的事：
+会自动读取 `deploy.env`，然后：
 
 - 更新 NPM 镜像
 - 更新 Xboard compose 分支代码
@@ -138,10 +182,10 @@ PURGE_DATA=1 ./uninstall.sh
 
 ### 1) 登录 NPM
 
-默认后台地址：
+后台地址：
 
 ```text
-http://你的服务器IP:81
+http://你的服务器IP:你设置的NPM_ADMIN_PORT
 ```
 
 NPM 默认初始账号通常是：
@@ -160,14 +204,14 @@ Password: changeme
 - **Domain Names**: 你的面板域名，例如 `xboard.example.com`
 - **Scheme**: `http`
 - **Forward Hostname / IP**: 服务器 IP
-- **Forward Port**: `7001`（如果你改过就填你自定义的端口）
+- **Forward Port**: 你设置的 `XBOARD_PORT`
 - **Block Common Exploits**: 建议开启
 - **Websockets Support**: 建议开启
 
 最简单的转发方式：
 
 ```text
-http://宿主机IP:7001
+http://宿主机IP:XBOARD_PORT
 ```
 
 ### 3) 证书
@@ -176,14 +220,22 @@ http://宿主机IP:7001
 
 ## 适合你的测试流程
 
-如果你准备在服务器上直接测，建议：
-
 ```bash
-git clone <你的仓库地址>
+git clone https://github.com/slobys/xboard-one-click.git
 cd xboard-one-click
 chmod +x install.sh update.sh uninstall.sh
-./install.sh
+./install.sh --interactive
 ```
+
+## 关于“改端口是否更安全”
+
+适度改端口是有帮助的，但它不是核心安全措施。真正更重要的是：
+
+- 修改 NPM 默认账号密码
+- 只开放必要端口
+- 尽量使用 HTTPS
+- 定期更新镜像和上游代码
+- 把管理端口放在高位端口，避免长期默认暴露
 
 ## 参考来源
 

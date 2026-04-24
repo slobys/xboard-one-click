@@ -6,15 +6,43 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${SCRIPT_DIR}/runtime"
 NPM_DIR="${WORK_DIR}/nginx-proxy-manager"
 XBOARD_DIR="${WORK_DIR}/Xboard"
-NPM_HTTP_PORT="${NPM_HTTP_PORT:-80}"
-NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-443}"
-NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-81}"
-XBOARD_PORT="${XBOARD_PORT:-7001}"
-XBOARD_ADMIN_EMAIL="${XBOARD_ADMIN_EMAIL:-admin@demo.com}"
-XBOARD_REPO="${XBOARD_REPO:-https://github.com/cedar2025/Xboard}"
-XBOARD_BRANCH="${XBOARD_BRANCH:-compose}"
-ENABLE_FIREWALL_OPEN="${ENABLE_FIREWALL_OPEN:-1}"
-FORCE_XBOARD_INSTALL="${FORCE_XBOARD_INSTALL:-0}"
+DEPLOY_ENV_FILE="${SCRIPT_DIR}/deploy.env"
+
+DEFAULT_NPM_HTTP_PORT=80
+DEFAULT_NPM_HTTPS_PORT=443
+DEFAULT_NPM_ADMIN_PORT=81
+DEFAULT_XBOARD_PORT=7001
+DEFAULT_XBOARD_ADMIN_EMAIL="admin@demo.com"
+DEFAULT_XBOARD_REPO="https://github.com/cedar2025/Xboard"
+DEFAULT_XBOARD_BRANCH="compose"
+DEFAULT_ENABLE_FIREWALL_OPEN=1
+DEFAULT_FORCE_XBOARD_INSTALL=0
+DEFAULT_INTERACTIVE_CONFIG=0
+DEFAULT_AUTO_WRITE_DEPLOY_ENV=1
+
+INPUT_NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
+INPUT_NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
+INPUT_NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-}"
+INPUT_XBOARD_PORT="${XBOARD_PORT:-}"
+INPUT_XBOARD_ADMIN_EMAIL="${XBOARD_ADMIN_EMAIL:-}"
+INPUT_XBOARD_REPO="${XBOARD_REPO:-}"
+INPUT_XBOARD_BRANCH="${XBOARD_BRANCH:-}"
+INPUT_ENABLE_FIREWALL_OPEN="${ENABLE_FIREWALL_OPEN:-}"
+INPUT_FORCE_XBOARD_INSTALL="${FORCE_XBOARD_INSTALL:-}"
+INPUT_INTERACTIVE_CONFIG="${INTERACTIVE_CONFIG:-}"
+INPUT_AUTO_WRITE_DEPLOY_ENV="${AUTO_WRITE_DEPLOY_ENV:-}"
+
+NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
+NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
+NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-}"
+XBOARD_PORT="${XBOARD_PORT:-}"
+XBOARD_ADMIN_EMAIL="${XBOARD_ADMIN_EMAIL:-}"
+XBOARD_REPO="${XBOARD_REPO:-}"
+XBOARD_BRANCH="${XBOARD_BRANCH:-}"
+ENABLE_FIREWALL_OPEN="${ENABLE_FIREWALL_OPEN:-}"
+FORCE_XBOARD_INSTALL="${FORCE_XBOARD_INSTALL:-}"
+INTERACTIVE_CONFIG="${INTERACTIVE_CONFIG:-}"
+AUTO_WRITE_DEPLOY_ENV="${AUTO_WRITE_DEPLOY_ENV:-}"
 
 COMPOSE_CMD=()
 SUDO_CMD=()
@@ -44,6 +72,169 @@ run_compose() {
 
 run_privileged() {
   "${SUDO_CMD[@]}" "$@"
+}
+
+restore_input_overrides() {
+  [ -z "$INPUT_NPM_HTTP_PORT" ] || NPM_HTTP_PORT="$INPUT_NPM_HTTP_PORT"
+  [ -z "$INPUT_NPM_HTTPS_PORT" ] || NPM_HTTPS_PORT="$INPUT_NPM_HTTPS_PORT"
+  [ -z "$INPUT_NPM_ADMIN_PORT" ] || NPM_ADMIN_PORT="$INPUT_NPM_ADMIN_PORT"
+  [ -z "$INPUT_XBOARD_PORT" ] || XBOARD_PORT="$INPUT_XBOARD_PORT"
+  [ -z "$INPUT_XBOARD_ADMIN_EMAIL" ] || XBOARD_ADMIN_EMAIL="$INPUT_XBOARD_ADMIN_EMAIL"
+  [ -z "$INPUT_XBOARD_REPO" ] || XBOARD_REPO="$INPUT_XBOARD_REPO"
+  [ -z "$INPUT_XBOARD_BRANCH" ] || XBOARD_BRANCH="$INPUT_XBOARD_BRANCH"
+  [ -z "$INPUT_ENABLE_FIREWALL_OPEN" ] || ENABLE_FIREWALL_OPEN="$INPUT_ENABLE_FIREWALL_OPEN"
+  [ -z "$INPUT_FORCE_XBOARD_INSTALL" ] || FORCE_XBOARD_INSTALL="$INPUT_FORCE_XBOARD_INSTALL"
+  [ -z "$INPUT_INTERACTIVE_CONFIG" ] || INTERACTIVE_CONFIG="$INPUT_INTERACTIVE_CONFIG"
+  [ -z "$INPUT_AUTO_WRITE_DEPLOY_ENV" ] || AUTO_WRITE_DEPLOY_ENV="$INPUT_AUTO_WRITE_DEPLOY_ENV"
+}
+
+load_deploy_env() {
+  if [ -f "$DEPLOY_ENV_FILE" ]; then
+    log "加载本地配置文件: $DEPLOY_ENV_FILE"
+    set -a
+    # shellcheck disable=SC1090
+    . "$DEPLOY_ENV_FILE"
+    set +a
+  fi
+
+  restore_input_overrides
+}
+
+apply_defaults() {
+  NPM_HTTP_PORT="${NPM_HTTP_PORT:-${DEFAULT_NPM_HTTP_PORT}}"
+  NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-${DEFAULT_NPM_HTTPS_PORT}}"
+  NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-${DEFAULT_NPM_ADMIN_PORT}}"
+  XBOARD_PORT="${XBOARD_PORT:-${DEFAULT_XBOARD_PORT}}"
+  XBOARD_ADMIN_EMAIL="${XBOARD_ADMIN_EMAIL:-${DEFAULT_XBOARD_ADMIN_EMAIL}}"
+  XBOARD_REPO="${XBOARD_REPO:-${DEFAULT_XBOARD_REPO}}"
+  XBOARD_BRANCH="${XBOARD_BRANCH:-${DEFAULT_XBOARD_BRANCH}}"
+  ENABLE_FIREWALL_OPEN="${ENABLE_FIREWALL_OPEN:-${DEFAULT_ENABLE_FIREWALL_OPEN}}"
+  FORCE_XBOARD_INSTALL="${FORCE_XBOARD_INSTALL:-${DEFAULT_FORCE_XBOARD_INSTALL}}"
+  INTERACTIVE_CONFIG="${INTERACTIVE_CONFIG:-${DEFAULT_INTERACTIVE_CONFIG}}"
+  AUTO_WRITE_DEPLOY_ENV="${AUTO_WRITE_DEPLOY_ENV:-${DEFAULT_AUTO_WRITE_DEPLOY_ENV}}"
+}
+
+print_usage() {
+  cat <<EOF
+用法：
+  ./install.sh [--interactive|-i] [--non-interactive]
+
+说明：
+  --interactive      交互式填写端口和管理员邮箱，并写入 deploy.env
+  --non-interactive  完全按环境变量 / deploy.env / 默认值执行
+
+优先级：
+  shell 环境变量 > deploy.env > 脚本默认值
+EOF
+}
+
+parse_args() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --interactive|-i)
+        INTERACTIVE_CONFIG=1
+        ;;
+      --non-interactive)
+        INTERACTIVE_CONFIG=0
+        ;;
+      --help|-h)
+        print_usage
+        exit 0
+        ;;
+      *)
+        die "不支持的参数: $1"
+        ;;
+    esac
+    shift
+  done
+}
+
+is_valid_port() {
+  [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
+}
+
+validate_email() {
+  [[ "$1" == *"@"* ]]
+}
+
+validate_config() {
+  local port
+  for port in "$NPM_HTTP_PORT" "$NPM_HTTPS_PORT" "$NPM_ADMIN_PORT" "$XBOARD_PORT"; do
+    is_valid_port "$port" || die "端口无效: $port"
+  done
+
+  [ "$NPM_HTTP_PORT" != "$NPM_HTTPS_PORT" ] || die "NPM_HTTP_PORT 与 NPM_HTTPS_PORT 不能相同"
+  [ "$NPM_HTTP_PORT" != "$NPM_ADMIN_PORT" ] || die "NPM_HTTP_PORT 与 NPM_ADMIN_PORT 不能相同"
+  [ "$NPM_HTTP_PORT" != "$XBOARD_PORT" ] || die "NPM_HTTP_PORT 与 XBOARD_PORT 不能相同"
+  [ "$NPM_HTTPS_PORT" != "$NPM_ADMIN_PORT" ] || die "NPM_HTTPS_PORT 与 NPM_ADMIN_PORT 不能相同"
+  [ "$NPM_HTTPS_PORT" != "$XBOARD_PORT" ] || die "NPM_HTTPS_PORT 与 XBOARD_PORT 不能相同"
+  [ "$NPM_ADMIN_PORT" != "$XBOARD_PORT" ] || die "NPM_ADMIN_PORT 与 XBOARD_PORT 不能相同"
+
+  validate_email "$XBOARD_ADMIN_EMAIL" || die "XBOARD_ADMIN_EMAIL 格式看起来不对: $XBOARD_ADMIN_EMAIL"
+}
+
+prompt_value() {
+  local label="$1"
+  local current="$2"
+  local answer
+  printf '%s [%s]: ' "$label" "$current" >&2
+  read -r answer || true
+  if [ -n "$answer" ]; then
+    printf '%s' "$answer"
+  else
+    printf '%s' "$current"
+  fi
+}
+
+prompt_port() {
+  local label="$1"
+  local current="$2"
+  local value
+  while true; do
+    value="$(prompt_value "$label" "$current")"
+    if is_valid_port "$value"; then
+      printf '%s' "$value"
+      return
+    fi
+    warn "请输入 1-65535 之间的端口号"
+  done
+}
+
+configure_interactively() {
+  [ "$INTERACTIVE_CONFIG" = "1" ] || return 0
+  [ -t 0 ] || die "交互模式需要 TTY。请在终端执行，或改用环境变量 / deploy.env。"
+
+  log "进入交互式配置"
+  printf '%s\n' '提示：80/443 推荐保留给 NPM，后续申请证书更省事。' >&2
+
+  NPM_HTTP_PORT="$(prompt_port 'NPM HTTP 端口' "$NPM_HTTP_PORT")"
+  NPM_HTTPS_PORT="$(prompt_port 'NPM HTTPS 端口' "$NPM_HTTPS_PORT")"
+  NPM_ADMIN_PORT="$(prompt_port 'NPM 管理后台端口' "$NPM_ADMIN_PORT")"
+  XBOARD_PORT="$(prompt_port 'Xboard 对外端口' "$XBOARD_PORT")"
+  XBOARD_ADMIN_EMAIL="$(prompt_value 'Xboard 管理员邮箱' "$XBOARD_ADMIN_EMAIL")"
+
+  validate_config
+  write_deploy_env
+}
+
+write_deploy_env() {
+  [ "$AUTO_WRITE_DEPLOY_ENV" = "1" ] || return 0
+
+  cat >"$DEPLOY_ENV_FILE" <<EOF
+# xboard-one-click local config
+# 由 install.sh 自动生成/更新
+NPM_HTTP_PORT=${NPM_HTTP_PORT}
+NPM_HTTPS_PORT=${NPM_HTTPS_PORT}
+NPM_ADMIN_PORT=${NPM_ADMIN_PORT}
+XBOARD_PORT=${XBOARD_PORT}
+XBOARD_ADMIN_EMAIL=${XBOARD_ADMIN_EMAIL}
+XBOARD_REPO=${XBOARD_REPO}
+XBOARD_BRANCH=${XBOARD_BRANCH}
+ENABLE_FIREWALL_OPEN=${ENABLE_FIREWALL_OPEN}
+FORCE_XBOARD_INSTALL=${FORCE_XBOARD_INSTALL}
+EOF
+
+  log "已写入配置文件: $DEPLOY_ENV_FILE"
 }
 
 init_privilege_helper() {
@@ -294,9 +485,17 @@ print_summary() {
 
 部署完成。
 
+当前配置：
+- NPM HTTP 端口: ${NPM_HTTP_PORT}
+- NPM HTTPS 端口: ${NPM_HTTPS_PORT}
+- NPM 管理后台端口: ${NPM_ADMIN_PORT}
+- Xboard 对外端口: ${XBOARD_PORT}
+- Xboard 管理员邮箱: ${XBOARD_ADMIN_EMAIL}
+
 目录：
 - NPM: ${NPM_DIR}
 - Xboard: ${XBOARD_DIR}
+- 配置文件: ${DEPLOY_ENV_FILE}
 
 访问入口：
 - NPM 管理后台: http://服务器IP:${NPM_ADMIN_PORT}
@@ -325,6 +524,12 @@ EOF
 }
 
 main() {
+  load_deploy_env
+  parse_args "$@"
+  apply_defaults
+  configure_interactively
+  validate_config
+  write_deploy_env
   check_env
   prepare_dirs
   install_npm
