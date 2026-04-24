@@ -204,7 +204,22 @@ PURGE_DATA=1 ./uninstall.sh
 
 ## 部署完成后要做的事
 
-### 1) 登录 NPM
+### 1) 打开 Xboard
+
+注意：**Xboard 管理面板不是根路径**，安装完成后要打开脚本输出的：
+
+```text
+http://自动识别出的服务器IP:XBOARD_PORT/安全路径
+```
+
+脚本现在会直接输出：
+
+- `Xboard 首页`
+- `Xboard 管理面板`
+
+其中“管理面板”链接才是后台入口。
+
+### 2) 登录 NPM
 
 后台地址会自动按识别到的 IP 显示，例如：
 
@@ -212,16 +227,9 @@ PURGE_DATA=1 ./uninstall.sh
 http://自动识别出的服务器IP:你设置的NPM_ADMIN_PORT
 ```
 
-NPM 默认初始账号通常是：
+新版 NPM 首次访问按页面引导完成初始化，不再沿用旧版默认账号密码提示。
 
-```text
-Email: admin@example.com
-Password: changeme
-```
-
-首次登录后请立即修改。
-
-### 2) 在 NPM 里添加反向代理
+### 3) 在 NPM 里添加反向代理
 
 安装完成后，脚本会直接打印一份模板，你也可以打开：
 
@@ -236,6 +244,7 @@ cat npm-proxy-template.txt
 - **Forward Hostname / IP**: 自动识别出的服务器 IP
 - **Forward Port**: 你设置的 `XBOARD_PORT`
 - **Block Common Exploits**: 建议开启
+- **注意**：反代完成后，Xboard 后台仍要访问 `/安全路径`
 - **Websockets Support**: 建议开启
 
 最简单的转发方式：
@@ -244,7 +253,7 @@ cat npm-proxy-template.txt
 http://宿主机IP:XBOARD_PORT
 ```
 
-### 3) 证书
+### 4) 证书
 
 如果你的域名解析已经到服务器，且 80/443 端口通畅，就可以在 NPM 中申请 Let's Encrypt。
 

@@ -24,6 +24,7 @@ DEFAULT_AUTO_INSTALL_DEPS=1
 
 INPUT_SERVER_IP="${SERVER_IP:-}"
 DETECTED_SERVER_IP=""
+XBOARD_ADMIN_PATH=""
 
 INPUT_NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
 INPUT_NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
@@ -603,6 +604,28 @@ install_xboard() {
   run_compose "$XBOARD_DIR" up -d
 }
 
+resolve_xboard_admin_path() {
+  if [ ! -f "$XBOARD_DIR/.env" ]; then
+    XBOARD_ADMIN_PATH=""
+    return 0
+  fi
+
+  XBOARD_ADMIN_PATH="$(python3 - "$XBOARD_DIR/.env" <<'PY'
+from pathlib import Path
+import binascii
+import sys
+path = Path(sys.argv[1])
+app_key = ""
+for line in path.read_text().splitlines():
+    if line.startswith("APP_KEY="):
+        app_key = line.split("=", 1)[1].strip()
+        break
+if app_key:
+    print(f"{binascii.crc32(app_key.encode()) & 0xffffffff:08x}")
+PY
+)"
+}
+
 open_port_once() {
   local port="$1"
   local opened_list="$2"
@@ -671,7 +694,8 @@ SSL 建议：
 
 访问参考：
 - NPM 后台: http://${DETECTED_SERVER_IP}:${NPM_ADMIN_PORT}
-- Xboard 直连: http://${DETECTED_SERVER_IP}:${XBOARD_PORT}
+- Xboard 首页: http://${DETECTED_SERVER_IP}:${XBOARD_PORT}
+- Xboard 管理面板: http://${DETECTED_SERVER_IP}:${XBOARD_PORT}/${XBOARD_ADMIN_PATH}
 EOF
 }
 
@@ -695,7 +719,8 @@ print_summary() {
 
 访问入口：
 - NPM 管理后台: http://${DETECTED_SERVER_IP}:${NPM_ADMIN_PORT}
-- Xboard 直连地址: http://${DETECTED_SERVER_IP}:${XBOARD_PORT}
+- Xboard 首页: http://${DETECTED_SERVER_IP}:${XBOARD_PORT}
+- Xboard 管理面板: http://${DETECTED_SERVER_IP}:${XBOARD_PORT}/${XBOARD_ADMIN_PATH}
 
 已尝试放行端口：
 - ${NPM_HTTP_PORT}/tcp
@@ -703,14 +728,14 @@ print_summary() {
 - ${NPM_ADMIN_PORT}/tcp
 - ${XBOARD_PORT}/tcp
 
-NPM 默认初始账号：
-- Email: admin@example.com
-- Password: changeme
+NPM 首次访问：
+- 新版 NPM 请按页面引导完成初始化，不再使用旧版默认账号密码提示
 
 建议下一步：
-1. 登录 NPM 后立即修改默认账号密码
-2. 在 NPM 中新增 Proxy Host，把你的域名反代到 `http://${DETECTED_SERVER_IP}:${XBOARD_PORT}`
-3. 如果公网和 DNS 已就绪，再在 NPM 中申请 Let's Encrypt 证书
+1. 打开 Xboard 管理面板：`http://${DETECTED_SERVER_IP}:${XBOARD_PORT}/${XBOARD_ADMIN_PATH}`
+2. 登录 NPM 后按页面引导完成初始化
+3. 在 NPM 中新增 Proxy Host，把你的域名反代到 `http://${DETECTED_SERVER_IP}:${XBOARD_PORT}`
+4. 如果公网和 DNS 已就绪，再在 NPM 中申请 Let's Encrypt 证书
 
 NPM 反代填写模板：
 - Domain Names: xboard.example.com
@@ -720,6 +745,7 @@ NPM 反代填写模板：
 - Block Common Exploits: 开启
 - Websockets Support: 开启
 - SSL: 域名解析和端口放通后，在 NPM 中申请 Let's Encrypt
+- 反代完成后，Xboard 管理面板路径仍然是：/${XBOARD_ADMIN_PATH}
 
 常用命令：
 - 启动 NPM:    cd "${NPM_DIR}" && ${COMPOSE_CMD[*]} up -d
@@ -741,9 +767,10 @@ main() {
   install_missing_dependencies
   check_env
   prepare_dirs
-  write_npm_proxy_template
   install_npm
   install_xboard
+  resolve_xboard_admin_path
+  write_npm_proxy_template
   open_firewall_ports
   print_summary
 }
