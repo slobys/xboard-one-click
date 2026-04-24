@@ -72,14 +72,13 @@ check_env() {
 }
 
 ensure_xboard_port_mapping() {
-  python3 - "$XBOARD_DIR/compose.yaml" <<'PY'
+  python3 - "$XBOARD_DIR/compose.yaml" "$XBOARD_PORT" <<'PY'
 from pathlib import Path
-import os
 import re
 import sys
 path = Path(sys.argv[1])
+port = sys.argv[2]
 text = path.read_text()
-port = os.environ.get('XBOARD_PORT', '7001')
 text_new = re.sub(r'-\s*"\d+:7001"', f'- "{port}:7001"', text, count=1)
 if text_new == text and '7001:7001' not in text:
     raise SystemExit('未在 compose.yaml 中找到 Xboard 端口映射，已停止以避免误改。')

@@ -500,15 +500,15 @@ INSTALLED=false
 EOF
   fi
 
-  python3 - "$XBOARD_DIR/.env" <<'PY'
+  python3 - "$XBOARD_DIR/.env" "$XBOARD_PORT" <<'PY'
 from pathlib import Path
-import os
 import sys
 path = Path(sys.argv[1])
+port = sys.argv[2]
 text = path.read_text()
 lines = text.splitlines()
 updates = {
-    'APP_URL': f'http://localhost:{os.environ.get("XBOARD_PORT", "7001")}',
+    'APP_URL': f'http://localhost:{port}',
     'DB_CONNECTION': 'sqlite',
     'DB_DATABASE': '/www/.docker/.data/database.sqlite',
     'REDIS_HOST': '127.0.0.1',
@@ -540,14 +540,13 @@ PY
 }
 
 ensure_xboard_port_mapping() {
-  python3 - "$XBOARD_DIR/compose.yaml" <<'PY'
+  python3 - "$XBOARD_DIR/compose.yaml" "$XBOARD_PORT" <<'PY'
 from pathlib import Path
-import os
 import re
 import sys
 path = Path(sys.argv[1])
+port = sys.argv[2]
 text = path.read_text()
-port = os.environ.get('XBOARD_PORT', '7001')
 text_new = re.sub(r'-\s*"\d+:7001"', f'- "{port}:7001"', text, count=1)
 if text_new == text and '7001:7001' not in text:
     raise SystemExit('未在 compose.yaml 中找到 Xboard 端口映射，已停止以避免误改。')
@@ -732,9 +731,9 @@ NPM 首次访问：
 - 新版 NPM 请按页面引导完成初始化，不再使用旧版默认账号密码提示
 
 建议下一步：
-1. 打开 Xboard 管理面板：`http://${DETECTED_SERVER_IP}:${XBOARD_PORT}/${XBOARD_ADMIN_PATH}`
+1. 打开 Xboard 管理面板：http://${DETECTED_SERVER_IP}:${XBOARD_PORT}/${XBOARD_ADMIN_PATH}
 2. 登录 NPM 后按页面引导完成初始化
-3. 在 NPM 中新增 Proxy Host，把你的域名反代到 `http://${DETECTED_SERVER_IP}:${XBOARD_PORT}`
+3. 在 NPM 中新增 Proxy Host，把你的域名反代到 http://${DETECTED_SERVER_IP}:${XBOARD_PORT}
 4. 如果公网和 DNS 已就绪，再在 NPM 中申请 Let's Encrypt 证书
 
 NPM 反代填写模板：
