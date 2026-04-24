@@ -6,6 +6,7 @@ Xboard 一键部署脚本项目，默认走稳妥方案：
 - **Xboard 使用官方 compose 分支部署**
 - **Xboard 默认使用 SQLite + 内置 Redis**
 - **安装脚本自动尝试放行对应防火墙端口**
+- **Debian/Ubuntu 上缺失 Docker 时可自动安装依赖**
 - **端口支持自定义，并可持久化到本地 `deploy.env`**
 - **安装完成后自动打印 NPM 反代填写模板，并写入 `npm-proxy-template.txt`**
 - **反向代理主机在 NPM 后台手动添加**
@@ -48,6 +49,8 @@ xboard-one-click/
 - `python3`
 
 并且**当前用户必须能访问 Docker daemon**。
+
+> 如果是 Debian/Ubuntu，且你使用 `root`（或可用 `sudo` 的用户）执行，脚本会在 `AUTO_INSTALL_DEPS=1` 时自动安装缺失依赖，比如 Docker。
 
 如果你希望脚本自动放行防火墙端口，建议用 `root` 执行，或确保当前用户可用 `sudo`。
 
@@ -104,19 +107,20 @@ shell 环境变量 > deploy.env > 脚本默认值
 
 1. 加载 `deploy.env`（如果存在）
 2. 写入或更新本地配置文件
-3. 创建独立运行目录 `runtime/`
-4. 写入 Nginx Proxy Manager 的 `compose.yaml`
-5. 启动 NPM
-6. 拉取 Xboard 官方 `compose` 分支
-7. 准备 `.env`、SQLite 数据目录、日志目录等
-8. 执行官方安装命令（SQLite + 内置 Redis）
-9. 启动 Xboard
-10. 自动尝试放行以下端口：
+3. 自动安装缺失依赖（Debian/Ubuntu，默认开启）
+4. 创建独立运行目录 `runtime/`
+5. 写入 Nginx Proxy Manager 的 `compose.yaml`
+6. 启动 NPM
+7. 拉取 Xboard 官方 `compose` 分支
+8. 准备 `.env`、SQLite 数据目录、日志目录等
+9. 执行官方安装命令（SQLite + 内置 Redis）
+10. 启动 Xboard
+11. 自动尝试放行以下端口：
     - `NPM_HTTP_PORT/tcp`
     - `NPM_HTTPS_PORT/tcp`
     - `NPM_ADMIN_PORT/tcp`
     - `XBOARD_PORT/tcp`
-11. 自动按当前配置生成 NPM 反代模板：
+12. 自动按当前配置生成 NPM 反代模板：
     - 终端直接打印
     - 同时写入 `npm-proxy-template.txt`
 
@@ -149,6 +153,7 @@ shell 环境变量 > deploy.env > 脚本默认值
 - `FORCE_XBOARD_INSTALL`
 - `INTERACTIVE_CONFIG`
 - `AUTO_WRITE_DEPLOY_ENV`
+- `AUTO_INSTALL_DEPS`
 
 ### 变量说明
 
@@ -156,6 +161,7 @@ shell 环境变量 > deploy.env > 脚本默认值
 - `FORCE_XBOARD_INSTALL=1`：即使检测到已有 SQLite 数据，也强制重新执行 Xboard 安装流程
 - `INTERACTIVE_CONFIG=1`：效果等同于 `./install.sh --interactive`
 - `AUTO_WRITE_DEPLOY_ENV=0`：不自动写入 `deploy.env`
+- `AUTO_INSTALL_DEPS=0`：禁用自动安装依赖（默认开启）
 
 ## 更新项目
 

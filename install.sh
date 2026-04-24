@@ -20,6 +20,7 @@ DEFAULT_ENABLE_FIREWALL_OPEN=1
 DEFAULT_FORCE_XBOARD_INSTALL=0
 DEFAULT_INTERACTIVE_CONFIG=0
 DEFAULT_AUTO_WRITE_DEPLOY_ENV=1
+DEFAULT_AUTO_INSTALL_DEPS=1
 
 INPUT_NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
 INPUT_NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
@@ -32,6 +33,7 @@ INPUT_ENABLE_FIREWALL_OPEN="${ENABLE_FIREWALL_OPEN:-}"
 INPUT_FORCE_XBOARD_INSTALL="${FORCE_XBOARD_INSTALL:-}"
 INPUT_INTERACTIVE_CONFIG="${INTERACTIVE_CONFIG:-}"
 INPUT_AUTO_WRITE_DEPLOY_ENV="${AUTO_WRITE_DEPLOY_ENV:-}"
+INPUT_AUTO_INSTALL_DEPS="${AUTO_INSTALL_DEPS:-}"
 
 NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
 NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
@@ -44,6 +46,7 @@ ENABLE_FIREWALL_OPEN="${ENABLE_FIREWALL_OPEN:-}"
 FORCE_XBOARD_INSTALL="${FORCE_XBOARD_INSTALL:-}"
 INTERACTIVE_CONFIG="${INTERACTIVE_CONFIG:-}"
 AUTO_WRITE_DEPLOY_ENV="${AUTO_WRITE_DEPLOY_ENV:-}"
+AUTO_INSTALL_DEPS="${AUTO_INSTALL_DEPS:-}"
 
 COMPOSE_CMD=()
 SUDO_CMD=()
@@ -87,6 +90,7 @@ restore_input_overrides() {
   [ -z "$INPUT_FORCE_XBOARD_INSTALL" ] || FORCE_XBOARD_INSTALL="$INPUT_FORCE_XBOARD_INSTALL"
   [ -z "$INPUT_INTERACTIVE_CONFIG" ] || INTERACTIVE_CONFIG="$INPUT_INTERACTIVE_CONFIG"
   [ -z "$INPUT_AUTO_WRITE_DEPLOY_ENV" ] || AUTO_WRITE_DEPLOY_ENV="$INPUT_AUTO_WRITE_DEPLOY_ENV"
+  [ -z "$INPUT_AUTO_INSTALL_DEPS" ] || AUTO_INSTALL_DEPS="$INPUT_AUTO_INSTALL_DEPS"
 }
 
 load_deploy_env() {
@@ -113,6 +117,7 @@ apply_defaults() {
   FORCE_XBOARD_INSTALL="${FORCE_XBOARD_INSTALL:-${DEFAULT_FORCE_XBOARD_INSTALL}}"
   INTERACTIVE_CONFIG="${INTERACTIVE_CONFIG:-${DEFAULT_INTERACTIVE_CONFIG}}"
   AUTO_WRITE_DEPLOY_ENV="${AUTO_WRITE_DEPLOY_ENV:-${DEFAULT_AUTO_WRITE_DEPLOY_ENV}}"
+  AUTO_INSTALL_DEPS="${AUTO_INSTALL_DEPS:-${DEFAULT_AUTO_INSTALL_DEPS}}"
 }
 
 print_usage() {
@@ -126,6 +131,9 @@ print_usage() {
 
 优先级：
   shell 环境变量 > deploy.env > 脚本默认值
+
+补充：
+  AUTO_INSTALL_DEPS=1 时，会在 Debian/Ubuntu 上自动安装缺失依赖（如 docker）
 EOF
 }
 
@@ -215,7 +223,6 @@ configure_interactively() {
   XBOARD_ADMIN_EMAIL="$(prompt_value 'Xboard 管理员邮箱' "$XBOARD_ADMIN_EMAIL")"
 
   validate_config
-  write_deploy_env
 }
 
 write_deploy_env() {
@@ -252,9 +259,52 @@ init_privilege_helper() {
   SUDO_CMD=()
 }
 
+can_use_apt() {
+  command -v apt-get >/dev/null 2>&1 && [ -f /etc/os-release ]
+}
+
+install_missing_dependencies() {
+  [ "$AUTO_INSTALL_DEPS" = "1" ] || return 0
+  can_use_apt || return 0
+
+  local missing=()
+  command -v git >/dev/null 2>&1 || missing+=(git)
+  command -v python3 >/dev/null 2>&1 || missing+=(python3)
+  command -v docker >/dev/null 2>&1 || missing+=(docker)
+
+  [ ${#missing[@]} -gt 0 ] || return 0
+
+  log "检测到缺失依赖: ${missing[*]}"
+  log "尝试在 Debian/Ubuntu 上自动安装依赖"
+
+  local packages=(ca-certificates curl)
+  command -v git >/dev/null 2>&1 || packages+=(git)
+  command -v python3 >/dev/null 2>&1 || packages+=(python3)
+
+  if ! command -v docker >/dev/null 2>&1; then
+    packages+=(docker.io)
+    if apt-cache show docker-compose-plugin >/dev/null 2>&1; then
+      packages+=(docker-compose-plugin)
+    elif apt-cache show docker-compose-v2 >/dev/null 2>&1; then
+      packages+=(docker-compose-v2)
+    elif apt-cache show docker-compose >/dev/null 2>&1; then
+      packages+=(docker-compose)
+    fi
+  fi
+
+  run_privileged apt-get update
+  run_privileged apt-get install -y "${packages[@]}"
+
+  if command -v systemctl >/dev/null 2>&1; then
+    run_privileged systemctl enable --now docker || true
+  elif command -v service >/dev/null 2>&1; then
+    run_privileged service docker start || true
+  fi
+}
+
 check_env() {
   need_cmd git
-  need_cmd docker
+  command -v docker >/dev/null 2>&1 || die "缺少命令: docker。若是 Debian/Ubuntu，可保持 AUTO_INSTALL_DEPS=1 重试；否则请先手动安装 Docker。"
   need_cmd python3
 
   if docker compose version >/dev/null 2>&1; then
@@ -568,6 +618,8 @@ main() {
   configure_interactively
   validate_config
   write_deploy_env
+  init_privilege_helper
+  install_missing_dependencies
   check_env
   prepare_dirs
   write_npm_proxy_template
