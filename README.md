@@ -7,6 +7,7 @@ Xboard 一键部署脚本项目，默认走稳妥方案：
 - **Xboard 默认使用 SQLite + 内置 Redis**
 - **安装脚本自动尝试放行对应防火墙端口**
 - **端口支持自定义，并可持久化到本地 `deploy.env`**
+- **安装完成后自动打印 NPM 反代填写模板，并写入 `npm-proxy-template.txt`**
 - **反向代理主机在 NPM 后台手动添加**
 
 这样做比直接执行第三方来源不明脚本更稳，也更容易维护。
@@ -31,6 +32,7 @@ xboard-one-click/
 ├── update.sh
 ├── uninstall.sh
 ├── README.md
+├── npm-proxy-template.txt   # 安装后生成
 └── runtime/
     ├── nginx-proxy-manager/
     └── Xboard/
@@ -114,6 +116,9 @@ shell 环境变量 > deploy.env > 脚本默认值
     - `NPM_HTTPS_PORT/tcp`
     - `NPM_ADMIN_PORT/tcp`
     - `XBOARD_PORT/tcp`
+11. 自动按当前配置生成 NPM 反代模板：
+    - 终端直接打印
+    - 同时写入 `npm-proxy-template.txt`
 
 支持的防火墙：
 
@@ -198,6 +203,12 @@ Password: changeme
 首次登录后请立即修改。
 
 ### 2) 在 NPM 里添加反向代理
+
+安装完成后，脚本会直接打印一份模板，你也可以打开：
+
+```bash
+cat npm-proxy-template.txt
+```
 
 建议这样填：
 
