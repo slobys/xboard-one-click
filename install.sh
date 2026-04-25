@@ -775,15 +775,9 @@ NPM 反代填写模板：
 - SSL: 域名解析和端口放通后，在 NPM 中申请 Let's Encrypt
 - 反代完成后，Xboard 管理面板路径仍然是：/${XBOARD_ADMIN_PATH}
 
-常用命令：
+管理菜单：
 - 打开菜单:     xb
 - 菜单原路径:   bash "${SCRIPT_DIR}/menu.sh"
-- 启动 NPM:     cd "${NPM_DIR}" && ${COMPOSE_CMD[*]} up -d
-- 重启 NPM:     cd "${NPM_DIR}" && ${COMPOSE_CMD[*]} restart
-- 启动 Xboard:  cd "${XBOARD_DIR}" && ${COMPOSE_CMD[*]} up -d
-- 重启 Xboard:  cd "${XBOARD_DIR}" && ${COMPOSE_CMD[*]} restart
-- 重启 Node 节点: systemctl restart xboard-node
-- 查看 Xboard 日志: cd "${XBOARD_DIR}" && ${COMPOSE_CMD[*]} logs -f
 EOF
 }
 

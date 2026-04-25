@@ -350,16 +350,9 @@ show_access_info() {
     echo "- Xboard 管理面板: 安装完成后会自动生成安全路径"
   fi
   echo
-  info "常用命令"
-  echo "- 打开菜单: xb"
+  info "管理入口"
+  echo "- 直接输入: xb"
   echo "- 菜单原路径: bash \"${BASE_DIR}/menu.sh\""
-  echo "- 启动 NPM: cd \"${NPM_DIR}\" && docker compose up -d"
-  echo "- 重启 NPM: cd \"${NPM_DIR}\" && docker compose restart"
-  echo "- 启动 Xboard: cd \"${XBOARD_DIR}\" && docker compose up -d"
-  echo "- 重启 Xboard: cd \"${XBOARD_DIR}\" && docker compose restart"
-  echo "- 查看 NPM 日志: cd \"${NPM_DIR}\" && docker compose logs -f"
-  echo "- 查看 Xboard 日志: cd \"${XBOARD_DIR}\" && docker compose logs -f"
-  echo "- 重启 xboard-node 节点: systemctl restart ${XBOARD_NODE_SERVICE}"
 }
 
 run_install() {
@@ -480,7 +473,7 @@ show_menu() {
   echo "12. 重启 xboard-node 节点"
   echo "13. 放行当前配置端口"
   echo "14. 手动放行额外端口"
-  echo "15. 查看访问信息 / 常用命令"
+  echo "15. 查看访问信息"
   echo "16. 卸载（保留数据）"
   echo "17. 卸载（删除数据）"
   echo "0.  退出"
