@@ -439,9 +439,15 @@ install_missing_dependencies() {
   can_use_apt || return 0
 
   local missing=()
+  local need_compose=0
   command -v git >/dev/null 2>&1 || missing+=(git)
   command -v python3 >/dev/null 2>&1 || missing+=(python3)
   command -v docker >/dev/null 2>&1 || missing+=(docker)
+
+  if ! docker compose version >/dev/null 2>&1 && ! command -v docker-compose >/dev/null 2>&1; then
+    need_compose=1
+    missing+=(docker-compose)
+  fi
 
   [ ${#missing[@]} -gt 0 ] || return 0
 
@@ -454,6 +460,9 @@ install_missing_dependencies() {
 
   if ! command -v docker >/dev/null 2>&1; then
     packages+=(docker.io)
+  fi
+
+  if [ "$need_compose" = "1" ]; then
     if apt-cache show docker-compose-plugin >/dev/null 2>&1; then
       packages+=(docker-compose-plugin)
     elif apt-cache show docker-compose-v2 >/dev/null 2>&1; then
@@ -483,7 +492,7 @@ check_env() {
   elif command -v docker-compose >/dev/null 2>&1; then
     COMPOSE_CMD=(docker-compose)
   else
-    die "未找到 docker compose / docker-compose"
+    die "未找到 docker compose / docker-compose。当前常见原因是：系统里已有 docker，但未安装 compose 插件。请重新运行脚本，或手动安装 docker-compose-plugin / docker-compose-v2 / docker-compose。"
   fi
 
   if ! docker info >/dev/null 2>&1; then
