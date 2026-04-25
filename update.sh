@@ -9,11 +9,22 @@ XBOARD_DIR="${WORK_DIR}/Xboard"
 DEPLOY_ENV_FILE="${SCRIPT_DIR}/deploy.env"
 
 DEFAULT_XBOARD_BRANCH="compose"
+DEFAULT_NPM_HTTP_PORT=80
+DEFAULT_NPM_HTTPS_PORT=443
+DEFAULT_NPM_ADMIN_PORT=81
 DEFAULT_XBOARD_PORT=7001
 
+INPUT_NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
+INPUT_NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
+INPUT_NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-}"
+INPUT_EXTRA_NPM_HTTPS_PORTS="${EXTRA_NPM_HTTPS_PORTS:-}"
 INPUT_XBOARD_BRANCH="${XBOARD_BRANCH:-}"
 INPUT_XBOARD_PORT="${XBOARD_PORT:-}"
 
+NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
+NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
+NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-}"
+EXTRA_NPM_HTTPS_PORTS="${EXTRA_NPM_HTTPS_PORTS:-}"
 XBOARD_BRANCH="${XBOARD_BRANCH:-}"
 XBOARD_PORT="${XBOARD_PORT:-}"
 COMPOSE_CMD=()
@@ -35,6 +46,22 @@ run_compose() {
   local dir="$1"
   shift
   (cd "$dir" && "${COMPOSE_CMD[@]}" "$@")
+}
+
+normalize_port_csv() {
+  printf '%s' "$1" | tr ', ' '\n\n' | awk 'NF && !seen[$0]++ {printf("%s%s", sep, $0); sep=","}'
+}
+
+extra_https_ports_to_array() {
+  local normalized
+  normalized="$(normalize_port_csv "$EXTRA_NPM_HTTPS_PORTS")"
+  EXTRA_NPM_HTTPS_PORTS="$normalized"
+
+  if [ -n "$normalized" ]; then
+    IFS=',' read -r -a EXTRA_HTTPS_PORTS_ARRAY <<< "$normalized"
+  else
+    EXTRA_HTTPS_PORTS_ARRAY=()
+  fi
 }
 
 install_menu_shortcut() {
@@ -63,13 +90,51 @@ load_deploy_env() {
     set +a
   fi
 
+  [ -z "$INPUT_NPM_HTTP_PORT" ] || NPM_HTTP_PORT="$INPUT_NPM_HTTP_PORT"
+  [ -z "$INPUT_NPM_HTTPS_PORT" ] || NPM_HTTPS_PORT="$INPUT_NPM_HTTPS_PORT"
+  [ -z "$INPUT_NPM_ADMIN_PORT" ] || NPM_ADMIN_PORT="$INPUT_NPM_ADMIN_PORT"
+  [ -z "$INPUT_EXTRA_NPM_HTTPS_PORTS" ] || EXTRA_NPM_HTTPS_PORTS="$INPUT_EXTRA_NPM_HTTPS_PORTS"
   [ -z "$INPUT_XBOARD_BRANCH" ] || XBOARD_BRANCH="$INPUT_XBOARD_BRANCH"
   [ -z "$INPUT_XBOARD_PORT" ] || XBOARD_PORT="$INPUT_XBOARD_PORT"
 }
 
 apply_defaults() {
+  NPM_HTTP_PORT="${NPM_HTTP_PORT:-${DEFAULT_NPM_HTTP_PORT}}"
+  NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-${DEFAULT_NPM_HTTPS_PORT}}"
+  NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-${DEFAULT_NPM_ADMIN_PORT}}"
+  EXTRA_NPM_HTTPS_PORTS="${EXTRA_NPM_HTTPS_PORTS:-}"
   XBOARD_BRANCH="${XBOARD_BRANCH:-${DEFAULT_XBOARD_BRANCH}}"
   XBOARD_PORT="${XBOARD_PORT:-${DEFAULT_XBOARD_PORT}}"
+}
+
+write_npm_compose() {
+  extra_https_ports_to_array
+
+  {
+    cat <<EOF
+services:
+  app:
+    image: jc21/nginx-proxy-manager:latest
+    restart: unless-stopped
+    ports:
+      - "${NPM_HTTP_PORT}:80"
+      - "${NPM_HTTPS_PORT}:443"
+      - "${NPM_ADMIN_PORT}:81"
+EOF
+
+    if [ ${#EXTRA_HTTPS_PORTS_ARRAY[@]} -gt 0 ]; then
+      local port
+      for port in "${EXTRA_HTTPS_PORTS_ARRAY[@]}"; do
+        printf '      - "%s:443"\n' "$port"
+      done
+    fi
+
+    cat <<EOF
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+EOF
+  } >"$NPM_DIR/compose.yaml"
 }
 
 check_env() {
@@ -118,6 +183,9 @@ main() {
 
   [ -f "$NPM_DIR/compose.yaml" ] || die "未找到 NPM 部署目录，请先执行 ./install.sh"
   [ -d "$XBOARD_DIR/.git" ] || die "未找到 Xboard 运行目录，请先执行 ./install.sh"
+
+  log "按 deploy.env 重写 Nginx Proxy Manager compose 配置"
+  write_npm_compose
 
   log "更新 Nginx Proxy Manager 镜像"
   run_compose "$NPM_DIR" pull
