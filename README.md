@@ -58,7 +58,6 @@ xb
 - 更新 Xboard / NPM
 - 查看服务状态与访问信息
 - 手动放行额外端口
-- 添加 NPM 额外 HTTPS 端口映射（例如 `8443 -> 443`）
 - 重启 NPM / Xboard / xboard-node
 - 启动 NPM / Xboard
 - 查看 NPM / Xboard 日志
@@ -125,8 +124,6 @@ xb
 协议: TCP
 端口: 80, 443, NPM_ADMIN_PORT, XBOARD_PORT
 ```
-
-如果你还加了额外 HTTPS 端口映射（例如 `8443 -> 443`），也要把对应主机端口一起放行。
 
 ### 如何快速判断是不是云安全组问题
 

@@ -14,7 +14,6 @@ DEFAULT_NPM_HTTPS_PORT=443
 DEFAULT_NPM_ADMIN_PORT=81
 DEFAULT_XBOARD_PORT=7001
 DEFAULT_XBOARD_ADMIN_EMAIL="admin@demo.com"
-DEFAULT_EXTRA_NPM_HTTPS_PORTS=""
 DEFAULT_XBOARD_REPO="https://github.com/cedar2025/Xboard"
 DEFAULT_XBOARD_BRANCH="compose"
 DEFAULT_ENABLE_FIREWALL_OPEN=1
@@ -30,7 +29,6 @@ XBOARD_ADMIN_PATH=""
 INPUT_NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
 INPUT_NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
 INPUT_NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-}"
-INPUT_EXTRA_NPM_HTTPS_PORTS="${EXTRA_NPM_HTTPS_PORTS:-}"
 INPUT_CLOUD_FIREWALL_PROVIDER="${CLOUD_FIREWALL_PROVIDER:-}"
 INPUT_CLOUD_FIREWALL_REGION="${CLOUD_FIREWALL_REGION:-}"
 INPUT_CLOUD_FIREWALL_GROUP_ID="${CLOUD_FIREWALL_GROUP_ID:-}"
@@ -54,7 +52,6 @@ SERVER_IP="${SERVER_IP:-}"
 NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
 NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
 NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-}"
-EXTRA_NPM_HTTPS_PORTS="${EXTRA_NPM_HTTPS_PORTS:-}"
 CLOUD_FIREWALL_PROVIDER="${CLOUD_FIREWALL_PROVIDER:-}"
 CLOUD_FIREWALL_REGION="${CLOUD_FIREWALL_REGION:-}"
 CLOUD_FIREWALL_GROUP_ID="${CLOUD_FIREWALL_GROUP_ID:-}"
@@ -187,7 +184,6 @@ restore_input_overrides() {
   [ -z "$INPUT_NPM_HTTP_PORT" ] || NPM_HTTP_PORT="$INPUT_NPM_HTTP_PORT"
   [ -z "$INPUT_NPM_HTTPS_PORT" ] || NPM_HTTPS_PORT="$INPUT_NPM_HTTPS_PORT"
   [ -z "$INPUT_NPM_ADMIN_PORT" ] || NPM_ADMIN_PORT="$INPUT_NPM_ADMIN_PORT"
-  [ -z "$INPUT_EXTRA_NPM_HTTPS_PORTS" ] || EXTRA_NPM_HTTPS_PORTS="$INPUT_EXTRA_NPM_HTTPS_PORTS"
   [ -z "$INPUT_CLOUD_FIREWALL_PROVIDER" ] || CLOUD_FIREWALL_PROVIDER="$INPUT_CLOUD_FIREWALL_PROVIDER"
   [ -z "$INPUT_CLOUD_FIREWALL_REGION" ] || CLOUD_FIREWALL_REGION="$INPUT_CLOUD_FIREWALL_REGION"
   [ -z "$INPUT_CLOUD_FIREWALL_GROUP_ID" ] || CLOUD_FIREWALL_GROUP_ID="$INPUT_CLOUD_FIREWALL_GROUP_ID"
@@ -225,7 +221,6 @@ apply_defaults() {
   NPM_HTTP_PORT="${NPM_HTTP_PORT:-${DEFAULT_NPM_HTTP_PORT}}"
   NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-${DEFAULT_NPM_HTTPS_PORT}}"
   NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-${DEFAULT_NPM_ADMIN_PORT}}"
-  EXTRA_NPM_HTTPS_PORTS="${EXTRA_NPM_HTTPS_PORTS:-${DEFAULT_EXTRA_NPM_HTTPS_PORTS}}"
   XBOARD_PORT="${XBOARD_PORT:-${DEFAULT_XBOARD_PORT}}"
   XBOARD_ADMIN_EMAIL="${XBOARD_ADMIN_EMAIL:-${DEFAULT_XBOARD_ADMIN_EMAIL}}"
   XBOARD_REPO="${XBOARD_REPO:-${DEFAULT_XBOARD_REPO}}"
@@ -289,37 +284,6 @@ is_valid_port() {
   [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
 }
 
-normalize_port_csv() {
-  printf '%s' "$1" | tr ', ' '\n\n' | awk 'NF && !seen[$0]++ {printf("%s%s", sep, $0); sep=","}'
-}
-
-extra_https_ports_to_array() {
-  local normalized
-  normalized="$(normalize_port_csv "$EXTRA_NPM_HTTPS_PORTS")"
-  EXTRA_NPM_HTTPS_PORTS="$normalized"
-
-  if [ -n "$normalized" ]; then
-    IFS=',' read -r -a EXTRA_HTTPS_PORTS_ARRAY <<< "$normalized"
-  else
-    EXTRA_HTTPS_PORTS_ARRAY=()
-  fi
-}
-
-validate_extra_https_ports() {
-  local port
-
-  extra_https_ports_to_array
-
-  for port in "${EXTRA_HTTPS_PORTS_ARRAY[@]}"; do
-    is_valid_port "$port" || die "额外 NPM HTTPS 端口无效: $port"
-
-    [ "$port" != "$NPM_HTTP_PORT" ] || die "额外 NPM HTTPS 端口不能与 NPM_HTTP_PORT 相同: $port"
-    [ "$port" != "$NPM_HTTPS_PORT" ] || die "额外 NPM HTTPS 端口不能与 NPM_HTTPS_PORT 相同: $port"
-    [ "$port" != "$NPM_ADMIN_PORT" ] || die "额外 NPM HTTPS 端口不能与 NPM_ADMIN_PORT 相同: $port"
-    [ "$port" != "$XBOARD_PORT" ] || die "额外 NPM HTTPS 端口不能与 XBOARD_PORT 相同: $port"
-  done
-}
-
 validate_email() {
   [[ "$1" == *"@"* ]]
 }
@@ -336,8 +300,6 @@ validate_config() {
   [ "$NPM_HTTPS_PORT" != "$NPM_ADMIN_PORT" ] || die "NPM_HTTPS_PORT 与 NPM_ADMIN_PORT 不能相同"
   [ "$NPM_HTTPS_PORT" != "$XBOARD_PORT" ] || die "NPM_HTTPS_PORT 与 XBOARD_PORT 不能相同"
   [ "$NPM_ADMIN_PORT" != "$XBOARD_PORT" ] || die "NPM_ADMIN_PORT 与 XBOARD_PORT 不能相同"
-
-  validate_extra_https_ports
 
   validate_email "$XBOARD_ADMIN_EMAIL" || die "XBOARD_ADMIN_EMAIL 格式看起来不对: $XBOARD_ADMIN_EMAIL"
 }
@@ -394,7 +356,6 @@ write_deploy_env() {
 NPM_HTTP_PORT=${NPM_HTTP_PORT}
 NPM_HTTPS_PORT=${NPM_HTTPS_PORT}
 NPM_ADMIN_PORT=${NPM_ADMIN_PORT}
-EXTRA_NPM_HTTPS_PORTS=${EXTRA_NPM_HTTPS_PORTS}
 CLOUD_FIREWALL_PROVIDER=${CLOUD_FIREWALL_PROVIDER}
 CLOUD_FIREWALL_REGION=${CLOUD_FIREWALL_REGION}
 CLOUD_FIREWALL_GROUP_ID=${CLOUD_FIREWALL_GROUP_ID}
@@ -506,8 +467,6 @@ prepare_dirs() {
 }
 
 write_npm_compose() {
-  extra_https_ports_to_array
-
   {
     cat <<EOF
 services:
@@ -519,13 +478,6 @@ services:
       - "${NPM_HTTPS_PORT}:443"
       - "${NPM_ADMIN_PORT}:81"
 EOF
-
-    if [ ${#EXTRA_HTTPS_PORTS_ARRAY[@]} -gt 0 ]; then
-      local port
-      for port in "${EXTRA_HTTPS_PORTS_ARRAY[@]}"; do
-        printf '      - "%s:443"\n' "$port"
-      done
-    fi
 
     cat <<EOF
     volumes:
@@ -779,11 +731,6 @@ open_firewall_ports() {
     ports+=("$port")
   done
 
-  extra_https_ports_to_array
-  for port in "${EXTRA_HTTPS_PORTS_ARRAY[@]}"; do
-    ports+=("$port")
-  done
-
   open_all_firewall_ports "${ports[@]}"
 }
 
@@ -796,7 +743,6 @@ print_summary() {
 - NPM HTTP 端口: ${NPM_HTTP_PORT}
 - NPM HTTPS 端口: ${NPM_HTTPS_PORT}
 - NPM 管理后台端口: ${NPM_ADMIN_PORT}
-- NPM 额外 HTTPS 端口: ${EXTRA_NPM_HTTPS_PORTS:-无}
 - 云防火墙提供商: ${CLOUD_FIREWALL_PROVIDER:-auto}
 - Xboard 对外端口: ${XBOARD_PORT}
 - Xboard 管理员邮箱: ${XBOARD_ADMIN_EMAIL}
@@ -818,17 +764,6 @@ print_summary() {
 - ${NPM_HTTPS_PORT}/tcp
 - ${NPM_ADMIN_PORT}/tcp
 - ${XBOARD_PORT}/tcp
-
-EOF
-
-  if [ -n "$EXTRA_NPM_HTTPS_PORTS" ]; then
-    local port
-    for port in "${EXTRA_HTTPS_PORTS_ARRAY[@]}"; do
-      printf -- '- %s/tcp (额外映射到 443)\n' "$port"
-    done
-  fi
-
-  cat <<EOF
 
 NPM 首次访问：
 - 新版 NPM 请按页面引导完成初始化，不再使用旧版默认账号密码提示

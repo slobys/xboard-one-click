@@ -15,7 +15,6 @@ DEFAULT_NPM_HTTPS_PORT=443
 DEFAULT_NPM_ADMIN_PORT=81
 DEFAULT_XBOARD_PORT=7001
 DEFAULT_XBOARD_ADMIN_EMAIL="admin@demo.com"
-DEFAULT_EXTRA_NPM_HTTPS_PORTS=""
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -30,7 +29,6 @@ XBOARD_ADMIN_PATH=""
 NPM_HTTP_PORT="${NPM_HTTP_PORT:-}"
 NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-}"
 NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-}"
-EXTRA_NPM_HTTPS_PORTS="${EXTRA_NPM_HTTPS_PORTS:-}"
 XBOARD_PORT="${XBOARD_PORT:-}"
 XBOARD_ADMIN_EMAIL="${XBOARD_ADMIN_EMAIL:-}"
 
@@ -54,7 +52,6 @@ apply_defaults() {
   NPM_HTTP_PORT="${NPM_HTTP_PORT:-${DEFAULT_NPM_HTTP_PORT}}"
   NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-${DEFAULT_NPM_HTTPS_PORT}}"
   NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-${DEFAULT_NPM_ADMIN_PORT}}"
-  EXTRA_NPM_HTTPS_PORTS="${EXTRA_NPM_HTTPS_PORTS:-${DEFAULT_EXTRA_NPM_HTTPS_PORTS}}"
   XBOARD_PORT="${XBOARD_PORT:-${DEFAULT_XBOARD_PORT}}"
   XBOARD_ADMIN_EMAIL="${XBOARD_ADMIN_EMAIL:-${DEFAULT_XBOARD_ADMIN_EMAIL}}"
 }
@@ -207,22 +204,6 @@ is_valid_port() {
   [[ "$1" =~ ^[0-9]+$ ]] && [[ "$1" -ge 1 ]] && [[ "$1" -le 65535 ]]
 }
 
-normalize_port_csv() {
-  printf '%s' "$1" | tr ', ' '\n\n' | awk 'NF && !seen[$0]++ {printf("%s%s", sep, $0); sep=","}'
-}
-
-extra_https_ports_to_array() {
-  local normalized
-  normalized="$(normalize_port_csv "$EXTRA_NPM_HTTPS_PORTS")"
-  EXTRA_NPM_HTTPS_PORTS="$normalized"
-
-  if [[ -n "$normalized" ]]; then
-    IFS=',' read -r -a EXTRA_HTTPS_PORTS_ARRAY <<< "$normalized"
-  else
-    EXTRA_HTTPS_PORTS_ARRAY=()
-  fi
-}
-
 set_deploy_env_value() {
   local key="$1"
   local value="$2"
@@ -261,7 +242,6 @@ PY
 }
 
 write_npm_compose() {
-  extra_https_ports_to_array
   mkdir -p "$NPM_DIR/data" "$NPM_DIR/letsencrypt"
 
   {
@@ -276,34 +256,12 @@ services:
       - "${NPM_ADMIN_PORT}:81"
 EOF
 
-    if [[ ${#EXTRA_HTTPS_PORTS_ARRAY[@]} -gt 0 ]]; then
-      local port
-      for port in "${EXTRA_HTTPS_PORTS_ARRAY[@]}"; do
-        printf '      - "%s:443"\n' "$port"
-      done
-    fi
-
     cat <<EOF
     volumes:
       - ./data:/data
       - ./letsencrypt:/etc/letsencrypt
 EOF
   } >"$NPM_DIR/compose.yaml"
-}
-
-show_extra_https_mappings() {
-  extra_https_ports_to_array
-
-  if [[ ${#EXTRA_HTTPS_PORTS_ARRAY[@]} -eq 0 ]]; then
-    echo "- NPM 额外 HTTPS 端口: 无"
-    return 0
-  fi
-
-  echo "- NPM 额外 HTTPS 端口:"
-  local port
-  for port in "${EXTRA_HTTPS_PORTS_ARRAY[@]}"; do
-    echo "  - ${port} -> 443"
-  done
 }
 
 ensure_npm_ready_for_changes() {
@@ -317,140 +275,6 @@ ensure_npm_ready_for_changes() {
   fi
 
   return 0
-}
-
-save_extra_https_ports() {
-  set_deploy_env_value "EXTRA_NPM_HTTPS_PORTS" "$EXTRA_NPM_HTTPS_PORTS"
-}
-
-apply_npm_https_mapping_changes() {
-  if ! ensure_npm_ready_for_changes; then
-    return 1
-  fi
-
-  write_npm_compose
-  run_compose "$NPM_DIR" up -d
-}
-
-port_conflicts_with_main_services() {
-  local port="$1"
-
-  [[ "$port" != "$NPM_HTTP_PORT" ]] || return 0
-  [[ "$port" != "$NPM_HTTPS_PORT" ]] || return 0
-  [[ "$port" != "$NPM_ADMIN_PORT" ]] || return 0
-  [[ "$port" != "$XBOARD_PORT" ]] || return 0
-  return 1
-}
-
-add_npm_https_mapping() {
-  local port
-
-  load_deploy_env
-  extra_https_ports_to_array
-
-  read -r -p "请输入要额外映射到 443 的主机端口（例如: 8443）: " port
-  is_valid_port "$port" || {
-    warn "端口无效: $port"
-    return 1
-  }
-
-  if port_conflicts_with_main_services "$port"; then
-    warn "端口 ${port} 与当前主配置端口冲突，请换一个端口。"
-    return 1
-  fi
-
-  if [[ ",${EXTRA_NPM_HTTPS_PORTS}," == *",${port},"* ]]; then
-    warn "端口 ${port} 已经存在于额外 HTTPS 映射中。"
-    return 1
-  fi
-
-  EXTRA_NPM_HTTPS_PORTS="$(normalize_port_csv "${EXTRA_NPM_HTTPS_PORTS:+${EXTRA_NPM_HTTPS_PORTS},}${port}")"
-  save_extra_https_ports
-
-  if ! apply_npm_https_mapping_changes; then
-    warn "NPM 额外 HTTPS 端口映射应用失败。"
-    return 1
-  fi
-
-  open_ports "$port" || true
-  success "已添加额外 HTTPS 端口映射：${port} -> 443，并已重建 NPM。"
-}
-
-remove_npm_https_mapping() {
-  local port
-  local remaining=()
-  local existing
-
-  load_deploy_env
-  extra_https_ports_to_array
-
-  if [[ ${#EXTRA_HTTPS_PORTS_ARRAY[@]} -eq 0 ]]; then
-    warn "当前没有额外 HTTPS 端口映射可删除。"
-    return 1
-  fi
-
-  read -r -p "请输入要删除的额外 HTTPS 主机端口: " port
-  is_valid_port "$port" || {
-    warn "端口无效: $port"
-    return 1
-  }
-
-  if [[ ",${EXTRA_NPM_HTTPS_PORTS}," != *",${port},"* ]]; then
-    warn "端口 ${port} 不在当前额外 HTTPS 映射列表中。"
-    return 1
-  fi
-
-  for existing in "${EXTRA_HTTPS_PORTS_ARRAY[@]}"; do
-    if [[ "$existing" != "$port" ]]; then
-      remaining+=("$existing")
-    fi
-  done
-
-  EXTRA_NPM_HTTPS_PORTS="$(printf '%s\n' "${remaining[@]}" | awk 'NF && !seen[$0]++ {printf("%s%s", sep, $0); sep=","}')"
-  save_extra_https_ports
-
-  if ! apply_npm_https_mapping_changes; then
-    warn "NPM 额外 HTTPS 端口映射应用失败。"
-    return 1
-  fi
-
-  success "已删除额外 HTTPS 端口映射：${port} -> 443，并已重建 NPM。"
-}
-
-manage_npm_https_mappings() {
-  while true; do
-    load_deploy_env
-    extra_https_ports_to_array
-
-    echo
-    info "当前 NPM HTTPS 端口映射"
-    echo "- 主 HTTPS 端口: ${NPM_HTTPS_PORT} -> 443"
-    show_extra_https_mappings
-    echo
-    echo "1. 添加额外 HTTPS 端口映射到 443"
-    echo "2. 删除额外 HTTPS 端口映射"
-    echo "0. 返回上一级"
-
-    read -r -p "请输入选项: " subchoice
-    echo
-    case "$subchoice" in
-      1)
-        add_npm_https_mapping
-        pause
-        ;;
-      2)
-        remove_npm_https_mapping
-        pause
-        ;;
-      0)
-        return 0
-        ;;
-      *)
-        warn "无效选项，请重新输入。"
-        pause
-        ;;
-    esac
-  done
 }
 
 unique_ports() {
@@ -582,7 +406,6 @@ show_access_info() {
   echo "- NPM HTTP 端口: ${NPM_HTTP_PORT}"
   echo "- NPM HTTPS 端口: ${NPM_HTTPS_PORT}"
   echo "- NPM 管理后台端口: ${NPM_ADMIN_PORT}"
-  show_extra_https_mappings
   echo "- 云防火墙提供商: ${CLOUD_FIREWALL_PROVIDER:-auto}"
   echo "- Xboard 对外端口: ${XBOARD_PORT}"
   echo "- Xboard 管理员邮箱: ${XBOARD_ADMIN_EMAIL}"
@@ -713,16 +536,15 @@ show_menu() {
   echo "3.  查看服务状态"
   echo "4.  查看访问信息"
   echo "5.  放行额外端口"
-  echo "6.  添加 NPM 额外 HTTPS 端口映射"
-  echo "7.  重启 NPM"
-  echo "8.  重启 Xboard"
-  echo "9.  重启 xboard-node 节点"
-  echo "10. 启动 NPM"
-  echo "11. 启动 Xboard"
-  echo "12. 查看 NPM 日志"
-  echo "13. 查看 Xboard 日志"
-  echo "14. 卸载（保留数据）"
-  echo "15. 卸载（删除数据）"
+  echo "6.  重启 NPM"
+  echo "7.  重启 Xboard"
+  echo "8.  重启 xboard-node 节点"
+  echo "9.  启动 NPM"
+  echo "10. 启动 Xboard"
+  echo "11. 查看 NPM 日志"
+  echo "12. 查看 Xboard 日志"
+  echo "13. 卸载（保留数据）"
+  echo "14. 卸载（删除数据）"
   echo "0.  退出"
   echo "=========================================="
 }
@@ -757,41 +579,38 @@ main() {
         pause
         ;;
       6)
-        manage_npm_https_mappings
-        ;;
-      7)
         service_action "NPM" "$NPM_DIR" restart
         pause
         ;;
-      8)
+      7)
         service_action "Xboard" "$XBOARD_DIR" restart
         pause
         ;;
-      9)
+      8)
         restart_systemd_service "$XBOARD_NODE_SERVICE" "xboard-node 节点"
         pause
         ;;
-      10)
+      9)
         service_action "NPM" "$NPM_DIR" up
         pause
         ;;
-      11)
+      10)
         service_action "Xboard" "$XBOARD_DIR" up
         pause
         ;;
-      12)
+      11)
         service_action "NPM" "$NPM_DIR" logs
         pause
         ;;
-      13)
+      12)
         service_action "Xboard" "$XBOARD_DIR" logs
         pause
         ;;
-      14)
+      13)
         run_uninstall 0
         pause
         ;;
-      15)
+      14)
         run_uninstall 1
         pause
         ;;
