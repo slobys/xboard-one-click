@@ -35,63 +35,25 @@ bash <(curl -fsSL https://raw.githubusercontent.com/slobys/xboard-one-click/main
 
 ## 云平台防火墙（重要）
 
-脚本现在会优先尝试放行：
-- 云平台安全组 / VPC 防火墙
-- 然后再放行本机 `ufw` / `firewalld`
+很多云服务器上，**面板打不开的常见原因不是安装失败，而是云平台安全组 / 防火墙没有放行端口**。
 
-已兼容常见云平台的 CLI 自动放行模式（前提是对应 CLI 和认证已配置好）：
-- AWS
+脚本会尝试处理本机防火墙，但如果你使用的是：
 - 阿里云
-- GCP
 - 腾讯云
+- AWS
+- GCP
 - OCI
 
-你可以把云平台参数写进 `deploy.env`，常见示例：
+仍然建议你到对应云平台后台，手动检查并放行端口。
 
-**AWS / 阿里云 / 腾讯云**
+通常至少需要放行：
+- `80/tcp`
+- `443/tcp`
+- `NPM 管理后台端口`
+- `Xboard 面板端口`
+- 以及你后续手动添加的额外 HTTPS 映射端口
 
-```env
-CLOUD_FIREWALL_PROVIDER=aws
-CLOUD_FIREWALL_REGION=ap-east-1
-CLOUD_FIREWALL_GROUP_ID=sg-xxxxxxxx
-```
-
-```env
-CLOUD_FIREWALL_PROVIDER=aliyun
-CLOUD_FIREWALL_REGION=cn-hongkong
-CLOUD_FIREWALL_GROUP_ID=sg-xxxxxxxx
-```
-
-```env
-CLOUD_FIREWALL_PROVIDER=tencent
-CLOUD_FIREWALL_REGION=ap-hongkong
-CLOUD_FIREWALL_GROUP_ID=sg-xxxxxxxx
-```
-
-**GCP**
-
-```env
-CLOUD_FIREWALL_PROVIDER=gcp
-CLOUD_FIREWALL_PROJECT_ID=your-project-id
-CLOUD_FIREWALL_NETWORK=default
-CLOUD_FIREWALL_TARGET_TAGS=xboard
-```
-
-**OCI**
-
-```env
-CLOUD_FIREWALL_PROVIDER=oci
-CLOUD_FIREWALL_NSG_ID=ocid1.networksecuritygroup.oc1...
-```
-
-可选公共参数：
-
-```env
-CLOUD_FIREWALL_SOURCE_CIDR=0.0.0.0/0
-CLOUD_FIREWALL_RULE_PREFIX=xboard-one-click
-```
-
-如果没有配置对应云平台 CLI / 凭证，脚本会继续尝试本机防火墙，并提醒你去云控制台手动放行端口。
+如果服务器本机可以访问，但公网打不开，优先检查云平台安全组 / VPC 防火墙规则。
 
 ## 云控制台手动放行端口（很常见）
 
