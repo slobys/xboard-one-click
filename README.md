@@ -4,7 +4,7 @@
 ![Docker](https://img.shields.io/badge/docker-required-2496ED)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-一键部署 **Xboard + Nginx Proxy Manager**，适合需要快速完成面板部署、端口自定义、域名反代与 HTTPS 配置的场景。
+一键部署 **Xboard + Nginx Proxy Manager**，适合需要快速完成面板部署、端口自定义与 HTTPS 管理的场景。
 
 ## 特性
 
@@ -148,33 +148,6 @@ curl -I http://127.0.0.1:你的Xboard端口
 - **NPM 管理后台**
 
 > 注意：Xboard 后台不是根路径，请以脚本输出的 **Xboard 管理面板** 链接为准。
-
-## NPM 反向代理
-
-安装完成后会生成：
-
-```bash
-npm-proxy-template.txt
-```
-
-查看：
-
-```bash
-cat npm-proxy-template.txt
-```
-
-NPM 反代的核心参数：
-- **Scheme**: `http`
-- **Forward Hostname / IP**: 服务器 IP
-- **Forward Port**: 你设置的 `XBOARD_PORT`
-
-如果使用域名访问，Xboard 后台地址仍然是：
-
-```text
-https://你的域名/安全路径
-```
-
-而不是只访问域名根路径。
 
 ## 适用环境
 

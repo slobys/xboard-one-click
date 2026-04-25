@@ -3,4 +3,3 @@ runtime/
 .DS_Store
 .env.local
 deploy.env
-npm-proxy-template.txt
