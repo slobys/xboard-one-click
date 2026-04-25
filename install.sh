@@ -444,6 +444,22 @@ install_npm() {
   run_compose "$NPM_DIR" up -d
 }
 
+install_menu_shortcut() {
+  local target="/usr/local/bin/xb"
+
+  if [ ! -f "$SCRIPT_DIR/menu.sh" ]; then
+    warn "未找到 menu.sh，已跳过安装 xb 快捷命令。"
+    return 0
+  fi
+
+  log "安装快捷命令: xb -> ${SCRIPT_DIR}/menu.sh"
+  run_privileged tee "$target" >/dev/null <<EOF
+#!/usr/bin/env bash
+exec bash "${SCRIPT_DIR}/menu.sh" "\$@"
+EOF
+  run_privileged chmod +x "$target"
+}
+
 clone_or_update_xboard() {
   if [ ! -d "$XBOARD_DIR/.git" ]; then
     log "拉取 Xboard (${XBOARD_BRANCH} 分支)"
@@ -725,6 +741,8 @@ print_summary() {
 - NPM: ${NPM_DIR}
 - Xboard: ${XBOARD_DIR}
 - 配置文件: ${DEPLOY_ENV_FILE}
+- 管理菜单: ${SCRIPT_DIR}/menu.sh
+- 菜单快捷命令: /usr/local/bin/xb
 - NPM 反代模板: ${NPM_PROXY_TEMPLATE_FILE}
 
 访问入口：
@@ -758,6 +776,8 @@ NPM 反代填写模板：
 - 反代完成后，Xboard 管理面板路径仍然是：/${XBOARD_ADMIN_PATH}
 
 常用命令：
+- 打开菜单:     xb
+- 菜单原路径:   bash "${SCRIPT_DIR}/menu.sh"
 - 启动 NPM:     cd "${NPM_DIR}" && ${COMPOSE_CMD[*]} up -d
 - 重启 NPM:     cd "${NPM_DIR}" && ${COMPOSE_CMD[*]} restart
 - 启动 Xboard:  cd "${XBOARD_DIR}" && ${COMPOSE_CMD[*]} up -d
@@ -781,6 +801,7 @@ main() {
   prepare_dirs
   install_npm
   install_xboard
+  install_menu_shortcut
   resolve_xboard_admin_path
   write_npm_proxy_template
   open_firewall_ports

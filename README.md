@@ -29,7 +29,7 @@
 ```bash
 git clone https://github.com/slobys/xboard-one-click.git
 cd xboard-one-click
-chmod +x install.sh update.sh uninstall.sh
+chmod +x install.sh update.sh uninstall.sh menu.sh
 ./install.sh --interactive
 ```
 
@@ -74,6 +74,35 @@ https://你的域名/安全路径
 ```
 
 而不是只访问域名根路径。
+
+## 管理菜单
+
+安装完成后，可以随时调出菜单：
+
+```bash
+xb
+```
+
+如果你当前就在项目目录里，也可以直接运行：
+
+```bash
+./menu.sh
+```
+
+安装脚本和更新脚本会自动安装快捷命令：
+
+```bash
+/usr/local/bin/xb
+```
+
+菜单内已集成：
+- 安装 / 重新配置
+- 更新 Xboard / NPM
+- 启动 / 重启 / 停止 NPM
+- 启动 / 重启 / 停止 Xboard
+- 查看 NPM / Xboard 日志
+- 放行当前配置端口或手动放行额外端口
+- 查看访问信息与常用命令
 
 ## 常用命令
 

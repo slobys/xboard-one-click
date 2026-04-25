@@ -37,6 +37,23 @@ run_compose() {
   (cd "$dir" && "${COMPOSE_CMD[@]}" "$@")
 }
 
+install_menu_shortcut() {
+  local target="/usr/local/bin/xb"
+
+  if [ ! -f "$SCRIPT_DIR/menu.sh" ]; then
+    log "未找到 menu.sh，跳过安装 xb 快捷命令"
+    return 0
+  fi
+
+  cat >"$target" <<EOF
+#!/usr/bin/env bash
+exec bash "${SCRIPT_DIR}/menu.sh" "\$@"
+EOF
+  chmod +x "$target"
+
+  log "已安装快捷命令: xb -> ${SCRIPT_DIR}/menu.sh"
+}
+
 load_deploy_env() {
   if [ -f "$DEPLOY_ENV_FILE" ]; then
     log "加载本地配置文件: $DEPLOY_ENV_FILE"
@@ -116,6 +133,8 @@ main() {
   run_compose "$XBOARD_DIR" pull
   run_compose "$XBOARD_DIR" up -d
   run_compose "$XBOARD_DIR" port xboard 7001
+
+  install_menu_shortcut
 
   log "更新完成（当前 Xboard 对外端口: $XBOARD_PORT）"
 }
