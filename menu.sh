@@ -457,95 +457,6 @@ run_uninstall() {
   esac
 }
 
-restart_service_menu() {
-  while true; do
-    echo
-    echo "1. 管理面板服务"
-    echo "2. Xboard"
-    echo "3. xboard-node 节点"
-    echo "0. 返回上一级"
-
-    read -r -p "请选择要重启的服务: " choice
-    echo
-    case "$choice" in
-      1)
-        service_action "NPM" "$NPM_DIR" restart
-        return 0
-        ;;
-      2)
-        service_action "Xboard" "$XBOARD_DIR" restart
-        return 0
-        ;;
-      3)
-        restart_systemd_service "$XBOARD_NODE_SERVICE" "xboard-node 节点"
-        return 0
-        ;;
-      0)
-        return 0
-        ;;
-      *)
-        warn "无效选项，请重新输入。"
-        ;;
-    esac
-  done
-}
-
-start_service_menu() {
-  while true; do
-    echo
-    echo "1. 管理面板服务"
-    echo "2. Xboard"
-    echo "0. 返回上一级"
-
-    read -r -p "请选择要启动的服务: " choice
-    echo
-    case "$choice" in
-      1)
-        service_action "NPM" "$NPM_DIR" up
-        return 0
-        ;;
-      2)
-        service_action "Xboard" "$XBOARD_DIR" up
-        return 0
-        ;;
-      0)
-        return 0
-        ;;
-      *)
-        warn "无效选项，请重新输入。"
-        ;;
-    esac
-  done
-}
-
-show_logs_menu() {
-  while true; do
-    echo
-    echo "1. 管理面板服务日志"
-    echo "2. Xboard 日志"
-    echo "0. 返回上一级"
-
-    read -r -p "请选择要查看的日志: " choice
-    echo
-    case "$choice" in
-      1)
-        service_action "NPM" "$NPM_DIR" logs
-        return 0
-        ;;
-      2)
-        service_action "Xboard" "$XBOARD_DIR" logs
-        return 0
-        ;;
-      0)
-        return 0
-        ;;
-      *)
-        warn "无效选项，请重新输入。"
-        ;;
-    esac
-  done
-}
-
 service_action() {
   local label="$1"
   local dir="$2"
@@ -621,15 +532,19 @@ show_menu() {
   echo "      Xboard One Click 管理菜单"
   echo "=========================================="
   echo "1.  安装 / 重新配置（交互式）"
-  echo "2.  更新环境"
+  echo "2.  更新 Xboard / NPM"
   echo "3.  查看服务状态"
   echo "4.  查看访问信息"
   echo "5.  放行额外端口"
-  echo "6.  重启服务"
-  echo "7.  启动服务"
-  echo "8.  查看日志"
-  echo "9.  卸载（保留数据）"
-  echo "10. 卸载（删除数据）"
+  echo "6.  重启 NPM"
+  echo "7.  重启 Xboard"
+  echo "8.  重启 xboard-node 节点"
+  echo "9.  启动 NPM"
+  echo "10. 启动 Xboard"
+  echo "11. 查看 NPM 日志"
+  echo "12. 查看 Xboard 日志"
+  echo "13. 卸载（保留数据）"
+  echo "14. 卸载（删除数据）"
   echo "0.  退出"
   echo "=========================================="
 }
@@ -664,22 +579,38 @@ main() {
         pause
         ;;
       6)
-        restart_service_menu
+        service_action "NPM" "$NPM_DIR" restart
         pause
         ;;
       7)
-        start_service_menu
+        service_action "Xboard" "$XBOARD_DIR" restart
         pause
         ;;
       8)
-        show_logs_menu
+        restart_systemd_service "$XBOARD_NODE_SERVICE" "xboard-node 节点"
         pause
         ;;
       9)
-        run_uninstall 0
+        service_action "NPM" "$NPM_DIR" up
         pause
         ;;
       10)
+        service_action "Xboard" "$XBOARD_DIR" up
+        pause
+        ;;
+      11)
+        service_action "NPM" "$NPM_DIR" logs
+        pause
+        ;;
+      12)
+        service_action "Xboard" "$XBOARD_DIR" logs
+        pause
+        ;;
+      13)
+        run_uninstall 0
+        pause
+        ;;
+      14)
         run_uninstall 1
         pause
         ;;
