@@ -782,6 +782,7 @@ NPM 反代填写模板：
 - 重启 NPM:     cd "${NPM_DIR}" && ${COMPOSE_CMD[*]} restart
 - 启动 Xboard:  cd "${XBOARD_DIR}" && ${COMPOSE_CMD[*]} up -d
 - 重启 Xboard:  cd "${XBOARD_DIR}" && ${COMPOSE_CMD[*]} restart
+- 重启 Node 节点: systemctl restart xboard-node
 - 查看 Xboard 日志: cd "${XBOARD_DIR}" && ${COMPOSE_CMD[*]} logs -f
 EOF
 }

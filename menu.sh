@@ -7,6 +7,7 @@ WORK_DIR="${BASE_DIR}/runtime"
 NPM_DIR="${WORK_DIR}/nginx-proxy-manager"
 XBOARD_DIR="${WORK_DIR}/Xboard"
 DEPLOY_ENV_FILE="${BASE_DIR}/deploy.env"
+XBOARD_NODE_SERVICE="xboard-node"
 
 DEFAULT_NPM_HTTP_PORT=80
 DEFAULT_NPM_HTTPS_PORT=443
@@ -249,22 +250,76 @@ open_ports() {
   return 1
 }
 
-show_service_status() {
-  if ! ensure_compose_ready; then
+show_systemd_service_state() {
+  local unit="$1"
+  local label="$2"
+  local load_state
+  local active_state
+  local enabled_state
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    warn "系统未提供 systemctl，无法查看 ${label} 状态。"
     return 1
   fi
 
-  echo
-  info "Nginx Proxy Manager 状态"
-  if ! run_compose "$NPM_DIR" ps; then
-    warn "NPM 尚未安装或运行目录不存在。"
+  load_state="$(systemctl show "$unit" --property LoadState --value 2>/dev/null || true)"
+  if [[ -z "$load_state" || "$load_state" == "not-found" ]]; then
+    warn "${label} (${unit}) 不存在或尚未安装。"
+    return 1
+  fi
+
+  active_state="$(systemctl is-active "$unit" 2>/dev/null || true)"
+  enabled_state="$(systemctl is-enabled "$unit" 2>/dev/null || true)"
+  echo "- ${label}: active=${active_state:-unknown}, enabled=${enabled_state:-unknown}"
+}
+
+restart_systemd_service() {
+  local unit="$1"
+  local label="$2"
+  local load_state
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    error "系统未提供 systemctl，无法重启 ${label}。"
+    return 1
+  fi
+
+  load_state="$(systemctl show "$unit" --property LoadState --value 2>/dev/null || true)"
+  if [[ -z "$load_state" || "$load_state" == "not-found" ]]; then
+    warn "${label} (${unit}) 不存在或尚未安装。"
+    return 1
+  fi
+
+  info "重启 ${label} (${unit}) ..."
+  systemctl restart "$unit"
+  success "${label} 已重启。"
+}
+
+show_service_status() {
+  local compose_ready=0
+
+  if ensure_compose_ready; then
+    compose_ready=1
+  fi
+
+  if [[ "$compose_ready" -eq 1 ]]; then
+    echo
+    info "Nginx Proxy Manager 状态"
+    if ! run_compose "$NPM_DIR" ps; then
+      warn "NPM 尚未安装或运行目录不存在。"
+    fi
+
+    echo
+    info "Xboard 状态"
+    if ! run_compose "$XBOARD_DIR" ps; then
+      warn "Xboard 尚未安装或运行目录不存在。"
+    fi
+  else
+    warn "Docker Compose 不可用，已跳过 NPM / Xboard 容器状态检查。"
   fi
 
   echo
-  info "Xboard 状态"
-  if ! run_compose "$XBOARD_DIR" ps; then
-    warn "Xboard 尚未安装或运行目录不存在。"
-  fi
+  info "xboard-node 节点状态"
+  show_systemd_service_state "$XBOARD_NODE_SERVICE" "xboard-node 节点" || true
 }
 
 show_access_info() {
@@ -304,6 +359,7 @@ show_access_info() {
   echo "- 重启 Xboard: cd \"${XBOARD_DIR}\" && docker compose restart"
   echo "- 查看 NPM 日志: cd \"${NPM_DIR}\" && docker compose logs -f"
   echo "- 查看 Xboard 日志: cd \"${XBOARD_DIR}\" && docker compose logs -f"
+  echo "- 重启 xboard-node 节点: systemctl restart ${XBOARD_NODE_SERVICE}"
 }
 
 run_install() {
@@ -421,11 +477,12 @@ show_menu() {
   echo "9.  停止 Xboard"
   echo "10. 查看 NPM 日志"
   echo "11. 查看 Xboard 日志"
-  echo "12. 放行当前配置端口"
-  echo "13. 手动放行额外端口"
-  echo "14. 查看访问信息 / 常用命令"
-  echo "15. 卸载（保留数据）"
-  echo "16. 卸载（删除数据）"
+  echo "12. 重启 xboard-node 节点"
+  echo "13. 放行当前配置端口"
+  echo "14. 手动放行额外端口"
+  echo "15. 查看访问信息 / 常用命令"
+  echo "16. 卸载（保留数据）"
+  echo "17. 卸载（删除数据）"
   echo "0.  退出"
   echo "=========================================="
 }
@@ -484,22 +541,26 @@ main() {
         pause
         ;;
       12)
-        open_configured_ports
+        restart_systemd_service "$XBOARD_NODE_SERVICE" "xboard-node 节点"
         pause
         ;;
       13)
-        open_custom_ports
+        open_configured_ports
         pause
         ;;
       14)
-        show_access_info
+        open_custom_ports
         pause
         ;;
       15)
-        run_uninstall 0
+        show_access_info
         pause
         ;;
       16)
+        run_uninstall 0
+        pause
+        ;;
+      17)
         run_uninstall 1
         pause
         ;;

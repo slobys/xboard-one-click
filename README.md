@@ -100,6 +100,7 @@ xb
 - 更新 Xboard / NPM
 - 启动 / 重启 / 停止 NPM
 - 启动 / 重启 / 停止 Xboard
+- 重启 xboard-node 节点
 - 查看 NPM / Xboard 日志
 - 放行当前配置端口或手动放行额外端口
 - 查看访问信息与常用命令
