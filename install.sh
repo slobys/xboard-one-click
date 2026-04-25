@@ -7,6 +7,7 @@ WORK_DIR="${SCRIPT_DIR}/runtime"
 NPM_DIR="${WORK_DIR}/nginx-proxy-manager"
 XBOARD_DIR="${WORK_DIR}/Xboard"
 DEPLOY_ENV_FILE="${SCRIPT_DIR}/deploy.env"
+NPM_PROXY_TEMPLATE_FILE="${SCRIPT_DIR}/npm-proxy-template.txt"
 FIREWALL_HELPER_FILE="${SCRIPT_DIR}/firewall.sh"
 
 DEFAULT_NPM_HTTP_PORT=80
@@ -787,6 +788,34 @@ open_firewall_ports() {
   open_all_firewall_ports "${ports[@]}"
 }
 
+write_npm_proxy_template() {
+  cat >"$NPM_PROXY_TEMPLATE_FILE" <<EOF
+Nginx Proxy Manager 反代模板
+============================
+
+建议填写：
+- Domain Names: xboard.example.com
+- Scheme: http
+- Forward Hostname / IP: ${DETECTED_SERVER_IP}
+- Forward Port: ${XBOARD_PORT}
+- Cache Assets: 按需，默认可不开
+- Block Common Exploits: 开启
+- Websockets Support: 开启
+
+SSL 建议：
+- 如果域名已解析到服务器，并且 ${NPM_HTTP_PORT}/tcp 与 ${NPM_HTTPS_PORT}/tcp 已放行
+- 可以在 NPM 中勾选申请 Let's Encrypt 证书
+- Force SSL: 建议开启
+- HTTP/2 Support: 建议开启
+- HSTS Enabled: 按需
+
+访问参考：
+- NPM 后台: http://${DETECTED_SERVER_IP}:${NPM_ADMIN_PORT}
+- Xboard 首页: http://${DETECTED_SERVER_IP}:${XBOARD_PORT}
+- Xboard 管理面板: http://${DETECTED_SERVER_IP}:${XBOARD_PORT}/${XBOARD_ADMIN_PATH}
+EOF
+}
+
 print_summary() {
   cat <<EOF
 
@@ -807,6 +836,7 @@ print_summary() {
 - 配置文件: ${DEPLOY_ENV_FILE}
 - 管理菜单: ${SCRIPT_DIR}/menu.sh
 - 菜单快捷命令: /usr/local/bin/xb
+- NPM 反代模板: ${NPM_PROXY_TEMPLATE_FILE}
 
 访问入口：
 - NPM 管理后台: http://${DETECTED_SERVER_IP}:${NPM_ADMIN_PORT}
@@ -836,6 +866,18 @@ NPM 首次访问：
 建议下一步：
 1. 打开 Xboard 管理面板：http://${DETECTED_SERVER_IP}:${XBOARD_PORT}/${XBOARD_ADMIN_PATH}
 2. 登录 NPM 后按页面引导完成初始化
+3. 在 NPM 中新增 Proxy Host，把你的域名反代到 http://${DETECTED_SERVER_IP}:${XBOARD_PORT}
+4. 如果公网和 DNS 已就绪，再在 NPM 中申请 Let's Encrypt 证书
+
+NPM 反代填写模板：
+- Domain Names: xboard.example.com
+- Scheme: http
+- Forward Hostname / IP: ${DETECTED_SERVER_IP}
+- Forward Port: ${XBOARD_PORT}
+- Block Common Exploits: 开启
+- Websockets Support: 开启
+- SSL: 域名解析和端口放通后，在 NPM 中申请 Let's Encrypt
+- 反代完成后，Xboard 管理面板路径仍然是：/${XBOARD_ADMIN_PATH}
 
 管理菜单：
 - 打开菜单:     xb
@@ -860,6 +902,7 @@ main() {
   install_xboard
   install_menu_shortcut
   resolve_xboard_admin_path
+  write_npm_proxy_template
   open_firewall_ports
   print_summary
 }
