@@ -19,11 +19,13 @@
 ## 快速开始
 
 ```bash
-git clone https://github.com/slobys/xboard-one-click.git
-cd xboard-one-click
-chmod +x install.sh update.sh uninstall.sh menu.sh
-./install.sh --interactive
+bash <(curl -fsSL https://raw.githubusercontent.com/slobys/xboard-one-click/main/bootstrap.sh)
 ```
+
+这条命令会自动：
+- 拉取 / 更新项目到 `/root/xboard-one-click`
+- 补齐脚本执行权限
+- 启动交互式安装
 
 安装过程中会提示输入：
 - NPM HTTP / HTTPS 端口
