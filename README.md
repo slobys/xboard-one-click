@@ -54,12 +54,12 @@ xb
 菜单内已集成：
 - 安装 / 重新配置
 - 更新 Xboard / NPM
-- 启动 / 重启 / 停止 NPM
-- 启动 / 重启 / 停止 Xboard
-- 重启 xboard-node 节点
+- 查看服务状态与访问信息
+- 重启 NPM / Xboard / xboard-node
+- 启动 NPM / Xboard
 - 查看 NPM / Xboard 日志
-- 放行当前配置端口或手动放行额外端口
-- 查看访问信息
+- 手动放行额外端口
+- 卸载（保留数据 / 删除数据）
 
 ## 安装完成后
 

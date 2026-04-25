@@ -407,11 +407,6 @@ service_action() {
       run_compose "$dir" restart
       success "${label} 已重启。"
       ;;
-    stop)
-      info "停止 ${label} ..."
-      run_compose "$dir" stop
-      success "${label} 已停止。"
-      ;;
     logs)
       info "查看 ${label} 日志（按 Ctrl+C 退出）"
       run_compose "$dir" logs -f --tail=100
@@ -421,12 +416,6 @@ service_action() {
       return 1
       ;;
   esac
-}
-
-open_configured_ports() {
-  load_deploy_env
-  mapfile -t ports < <(printf '%s\n' "$NPM_HTTP_PORT" "$NPM_HTTPS_PORT" "$NPM_ADMIN_PORT" "$XBOARD_PORT" | unique_ports)
-  open_ports "${ports[@]}"
 }
 
 open_custom_ports() {
@@ -462,20 +451,17 @@ show_menu() {
   echo "1.  安装 / 重新配置（交互式）"
   echo "2.  更新 Xboard / NPM"
   echo "3.  查看服务状态"
-  echo "4.  启动 NPM"
+  echo "4.  查看访问信息"
   echo "5.  重启 NPM"
-  echo "6.  停止 NPM"
-  echo "7.  启动 Xboard"
-  echo "8.  重启 Xboard"
-  echo "9.  停止 Xboard"
+  echo "6.  重启 Xboard"
+  echo "7.  重启 xboard-node 节点"
+  echo "8.  启动 NPM"
+  echo "9.  启动 Xboard"
   echo "10. 查看 NPM 日志"
   echo "11. 查看 Xboard 日志"
-  echo "12. 重启 xboard-node 节点"
-  echo "13. 放行当前配置端口"
-  echo "14. 手动放行额外端口"
-  echo "15. 查看访问信息"
-  echo "16. 卸载（保留数据）"
-  echo "17. 卸载（删除数据）"
+  echo "12. 放行额外端口"
+  echo "13. 卸载（保留数据）"
+  echo "14. 卸载（删除数据）"
   echo "0.  退出"
   echo "=========================================="
 }
@@ -502,7 +488,7 @@ main() {
         pause
         ;;
       4)
-        service_action "NPM" "$NPM_DIR" up
+        show_access_info
         pause
         ;;
       5)
@@ -510,19 +496,19 @@ main() {
         pause
         ;;
       6)
-        service_action "NPM" "$NPM_DIR" stop
-        pause
-        ;;
-      7)
-        service_action "Xboard" "$XBOARD_DIR" up
-        pause
-        ;;
-      8)
         service_action "Xboard" "$XBOARD_DIR" restart
         pause
         ;;
+      7)
+        restart_systemd_service "$XBOARD_NODE_SERVICE" "xboard-node 节点"
+        pause
+        ;;
+      8)
+        service_action "NPM" "$NPM_DIR" up
+        pause
+        ;;
       9)
-        service_action "Xboard" "$XBOARD_DIR" stop
+        service_action "Xboard" "$XBOARD_DIR" up
         pause
         ;;
       10)
@@ -534,26 +520,14 @@ main() {
         pause
         ;;
       12)
-        restart_systemd_service "$XBOARD_NODE_SERVICE" "xboard-node 节点"
-        pause
-        ;;
-      13)
-        open_configured_ports
-        pause
-        ;;
-      14)
         open_custom_ports
         pause
         ;;
-      15)
-        show_access_info
-        pause
-        ;;
-      16)
+      13)
         run_uninstall 0
         pause
         ;;
-      17)
+      14)
         run_uninstall 1
         pause
         ;;
