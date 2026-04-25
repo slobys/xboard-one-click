@@ -56,7 +56,7 @@ xb
 - 更新 Xboard / NPM
 - 查看服务状态与访问信息
 - 手动放行额外端口
-- 管理 NPM 额外 HTTPS 端口映射（例如 `8443 -> 443`）
+- 添加 NPM 额外 HTTPS 端口映射（例如 `8443 -> 443`）
 - 重启 NPM / Xboard / xboard-node
 - 启动 NPM / Xboard
 - 查看 NPM / Xboard 日志

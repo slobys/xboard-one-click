@@ -703,7 +703,7 @@ show_menu() {
   echo "3.  查看服务状态"
   echo "4.  查看访问信息"
   echo "5.  放行额外端口"
-  echo "6.  管理 NPM 额外 HTTPS 端口映射"
+  echo "6.  添加 NPM 额外 HTTPS 端口映射"
   echo "7.  重启 NPM"
   echo "8.  重启 Xboard"
   echo "9.  重启 xboard-node 节点"
