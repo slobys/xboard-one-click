@@ -33,6 +33,37 @@ bash <(curl -fsSL https://raw.githubusercontent.com/slobys/xboard-one-click/main
 - Xboard 对外端口
 - Xboard 管理员邮箱
 
+## 管理菜单
+
+安装完成后，可以随时调出菜单：
+
+```bash
+xb
+```
+
+如果你当前就在项目目录里，也可以直接运行：
+
+```bash
+./menu.sh
+```
+
+安装脚本和更新脚本会自动安装快捷命令：
+
+```bash
+/usr/local/bin/xb
+```
+
+菜单内已集成：
+- 安装 / 重新配置
+- 更新 Xboard / NPM
+- 查看服务状态与访问信息
+- 手动放行额外端口
+- 添加 NPM 额外 HTTPS 端口映射（例如 `8443 -> 443`）
+- 重启 NPM / Xboard / xboard-node
+- 启动 NPM / Xboard
+- 查看 NPM / Xboard 日志
+- 卸载（保留数据 / 删除数据）
+
 ## 云平台防火墙（重要）
 
 很多云服务器上，**面板打不开的常见原因不是安装失败，而是云平台安全组 / 防火墙没有放行端口**。
@@ -108,37 +139,6 @@ curl -I http://127.0.0.1:你的Xboard端口
 ```
 
 如果本机访问正常，但公网 IP 访问失败，基本就是云安全组没有放行。
-
-## 管理菜单
-
-安装完成后，可以随时调出菜单：
-
-```bash
-xb
-```
-
-如果你当前就在项目目录里，也可以直接运行：
-
-```bash
-./menu.sh
-```
-
-安装脚本和更新脚本会自动安装快捷命令：
-
-```bash
-/usr/local/bin/xb
-```
-
-菜单内已集成：
-- 安装 / 重新配置
-- 更新 Xboard / NPM
-- 查看服务状态与访问信息
-- 手动放行额外端口
-- 添加 NPM 额外 HTTPS 端口映射（例如 `8443 -> 443`）
-- 重启 NPM / Xboard / xboard-node
-- 启动 NPM / Xboard
-- 查看 NPM / Xboard 日志
-- 卸载（保留数据 / 删除数据）
 
 ## 安装完成后
 
