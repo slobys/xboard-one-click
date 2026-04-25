@@ -7,6 +7,7 @@ WORK_DIR="${BASE_DIR}/runtime"
 NPM_DIR="${WORK_DIR}/nginx-proxy-manager"
 XBOARD_DIR="${WORK_DIR}/Xboard"
 DEPLOY_ENV_FILE="${BASE_DIR}/deploy.env"
+FIREWALL_HELPER_FILE="${BASE_DIR}/firewall.sh"
 XBOARD_NODE_SERVICE="xboard-node"
 
 DEFAULT_NPM_HTTP_PORT=80
@@ -582,6 +583,7 @@ show_access_info() {
   echo "- NPM HTTPS 端口: ${NPM_HTTPS_PORT}"
   echo "- NPM 管理后台端口: ${NPM_ADMIN_PORT}"
   show_extra_https_mappings
+  echo "- 云防火墙提供商: ${CLOUD_FIREWALL_PROVIDER:-auto}"
   echo "- Xboard 对外端口: ${XBOARD_PORT}"
   echo "- Xboard 管理员邮箱: ${XBOARD_ADMIN_EMAIL}"
   echo
@@ -673,6 +675,14 @@ open_custom_ports() {
   local token
   local ports=()
 
+  [ -f "$FIREWALL_HELPER_FILE" ] || {
+    warn "未找到防火墙助手脚本: $FIREWALL_HELPER_FILE"
+    return 1
+  }
+
+  # shellcheck disable=SC1090
+  . "$FIREWALL_HELPER_FILE"
+
   read -r -p "请输入要放行的端口（空格或逗号分隔，例如: 80 443 7001）: " raw
   raw="${raw//,/ }"
 
@@ -690,7 +700,7 @@ open_custom_ports() {
   fi
 
   mapfile -t ports < <(printf '%s\n' "${ports[@]}" | unique_ports)
-  open_ports "${ports[@]}"
+  open_all_firewall_ports "${ports[@]}"
 }
 
 show_menu() {

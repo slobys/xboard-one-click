@@ -13,7 +13,7 @@
 - 自动部署 NPM
 - 支持自定义端口
 - 自动识别服务器 IP
-- 自动放行防火墙端口（`ufw` / `firewalld`）
+- 自动放行防火墙端口（云平台安全组/防火墙 + `ufw` / `firewalld`）
 - Debian / Ubuntu 支持自动安装 Docker 相关依赖
 
 ## 快速开始
@@ -32,6 +32,66 @@ bash <(curl -fsSL https://raw.githubusercontent.com/slobys/xboard-one-click/main
 - NPM 管理后台端口
 - Xboard 对外端口
 - Xboard 管理员邮箱
+
+## 云平台防火墙（重要）
+
+脚本现在会优先尝试放行：
+- 云平台安全组 / VPC 防火墙
+- 然后再放行本机 `ufw` / `firewalld`
+
+已兼容常见云平台的 CLI 自动放行模式（前提是对应 CLI 和认证已配置好）：
+- AWS
+- 阿里云
+- GCP
+- 腾讯云
+- OCI
+
+你可以把云平台参数写进 `deploy.env`，常见示例：
+
+**AWS / 阿里云 / 腾讯云**
+
+```env
+CLOUD_FIREWALL_PROVIDER=aws
+CLOUD_FIREWALL_REGION=ap-east-1
+CLOUD_FIREWALL_GROUP_ID=sg-xxxxxxxx
+```
+
+```env
+CLOUD_FIREWALL_PROVIDER=aliyun
+CLOUD_FIREWALL_REGION=cn-hongkong
+CLOUD_FIREWALL_GROUP_ID=sg-xxxxxxxx
+```
+
+```env
+CLOUD_FIREWALL_PROVIDER=tencent
+CLOUD_FIREWALL_REGION=ap-hongkong
+CLOUD_FIREWALL_GROUP_ID=sg-xxxxxxxx
+```
+
+**GCP**
+
+```env
+CLOUD_FIREWALL_PROVIDER=gcp
+CLOUD_FIREWALL_PROJECT_ID=your-project-id
+CLOUD_FIREWALL_NETWORK=default
+CLOUD_FIREWALL_TARGET_TAGS=xboard
+```
+
+**OCI**
+
+```env
+CLOUD_FIREWALL_PROVIDER=oci
+CLOUD_FIREWALL_NSG_ID=ocid1.networksecuritygroup.oc1...
+```
+
+可选公共参数：
+
+```env
+CLOUD_FIREWALL_SOURCE_CIDR=0.0.0.0/0
+CLOUD_FIREWALL_RULE_PREFIX=xboard-one-click
+```
+
+如果没有配置对应云平台 CLI / 凭证，脚本会继续尝试本机防火墙，并提醒你去云控制台手动放行端口。
 
 ## 管理菜单
 

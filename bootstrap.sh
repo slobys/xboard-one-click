@@ -70,7 +70,7 @@ main() {
   prepare_repo
 
   log "开始执行交互式安装"
-  run_privileged chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/menu.sh" "$INSTALL_DIR/bootstrap.sh"
+  run_privileged chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/menu.sh" "$INSTALL_DIR/bootstrap.sh" "$INSTALL_DIR/firewall.sh"
 
   if [ "$(id -u)" -eq 0 ]; then
     exec bash "$INSTALL_DIR/install.sh" --interactive
